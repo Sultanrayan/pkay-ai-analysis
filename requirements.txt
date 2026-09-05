@@ -1,0 +1,12 @@
+# Telegram bot framework (v20+ async API)
+python-telegram-bot>=21.0,<23.0
+# Async HTTP client (also required by python-telegram-bot)
+httpx>=0.27
+# PostgreSQL driver (async)
+asyncpg>=0.29
+# Redis client (async)
+redis>=5.0
+# Environment variable loading from .env
+python-dotenv>=1.0
+# Chart image generation
+Pillow>=10.0

@@ -1,0 +1,39 @@
+# Local development infrastructure for the trading analysis bot.
+# Usage: docker compose up -d
+# The bot reads credentials from .env (see .env.example) — defaults in this
+# file mirror the .env.example DATABASE_URL / REDIS_URL values.
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: tradingbot-postgres
+    environment:
+      POSTGRES_USER: tradingbot
+      POSTGRES_PASSWORD: tradingbot
+      POSTGRES_DB: trading_bot
+    ports:
+      - "5432:5432"
+    volumes:
+      - tradingbot-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U tradingbot -d trading_bot"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    container_name: tradingbot-redis
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "6379:6379"
+    volumes:
+      - tradingbot-redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  tradingbot-pgdata:
+  tradingbot-redisdata:
