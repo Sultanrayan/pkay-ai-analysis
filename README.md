@@ -112,10 +112,10 @@ flowchart TD
     
     WELCOME --> MENU{User Action}
     
-    MENU -->|Click "Analyze"| SELECT[Select Asset]
-    MENU -->|Click "History"| HISTORY[Show Past Analysis]
-    MENU -->|Click "Help"| HELP[Show Help Guide]
-    MENU -->|Click "Settings"| SETTINGS[User Preferences]
+    MENU -->|"Click Analyze"| SELECT[Select Asset]
+    MENU -->|"Click History"| HISTORY[Show Past Analysis]
+    MENU -->|"Click Help"| HELP[Show Help Guide]
+    MENU -->|"Click Settings"| SETTINGS[User Preferences]
     
     SELECT --> SELECT_ASSET{Choose Asset}
     
@@ -166,7 +166,7 @@ flowchart TD
 ```mermaid
 graph LR
     subgraph "Telegram Input"
-        CMD[/analyze BTCUSD]
+        CMD[/analyze BTCUSD/]
         BTN[Inline Button Click]
     end
     
@@ -277,19 +277,19 @@ erDiagram
 ```mermaid
 graph TD
     subgraph "Commands"
-        C1[/start - Welcome & Menu]
-        C2[/analyze - Start Analysis]
-        C3[/history - View History]
-        C4[/settings - User Settings]
-        C5[/help - Help Guide]
-        C6[/about - Bot Info]
+        C1[/start - Welcome & Menu/]
+        C2[/analyze - Start Analysis/]
+        C3[/history - View History/]
+        C4[/settings - User Settings/]
+        C5[/help - Help Guide/]
+        C6[/about - Bot Info/]
     end
     
     subgraph "Inline Keyboards"
-        K1[Asset Selection<br/>BTCUSD | XAUUSD | Both]
-        K2[Timeframe Selection<br/>1H | 4H | 1D | 1W]
-        K3[Action Buttons<br/>Refresh | History | Export | Menu]
-        K4[Settings Options<br/>Language | Defaults | Notifications]
+        K1["Asset Selection<br/>BTCUSD | XAUUSD | Both"]
+        K2["Timeframe Selection<br/>1H | 4H | 1D | 1W"]
+        K3["Action Buttons<br/>Refresh | History | Export | Menu"]
+        K4["Settings Options<br/>Language | Defaults | Notifications"]
     end
     
     subgraph "Responses"
@@ -769,7 +769,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## Contact & Support
 
-- **Telegram:** [@TradingBotSupport](https://t.me/spcaeechoo)
+- **Telegram:** [Developer](https://t.me/spcaeechoo)
 - **Email:** errorkruzer1@gmail.com
 - **GitHub Issues:** [Open an Issue](https://github.com/Sultanrayan/pkay-ai-analysis/issues)
 
