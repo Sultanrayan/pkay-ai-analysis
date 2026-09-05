@@ -1,0 +1,58 @@
+# Publishes the Python wheel + sdist to GitHub Packages (PyPI registry).
+#
+# Prerequisites (one-time, repo owner only):
+#   1. Enable the PyPI registry for this repository:
+#      Settings -> Packages -> enable "Inherit access from source repository".
+#      Without this, uploads return HTTP 404.
+#   2. Create a classic Personal Access Token with the `write:packages`
+#      scope (github.com/settings/tokens) and store it as a repository
+#      secret named `PACKAGES_PAT`.
+#
+# Triggers:
+#   - pushing a version tag, e.g.  git tag v0.1.0 && git push origin v0.1.0
+#   - manually via Actions -> "Publish to GitHub Packages" -> Run workflow
+
+name: Publish to GitHub Packages
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  publish:
+    name: Build and publish to GitHub Packages
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install build tooling
+        run: python -m pip install --upgrade pip build twine
+
+      - name: Build distributions
+        run: python -m build
+
+      - name: Verify distributions
+        run: python -m twine check dist/*
+
+      - name: Publish to GitHub Packages
+        # The Python registry is owner-scoped: pypi.pkg.github.com/{owner}.
+        env:
+          TWINE_USERNAME: ${{ github.repository_owner }}
+          TWINE_PASSWORD: ${{ secrets.PACKAGES_PAT }}
+        run: |
+          python -m twine upload \
+            --repository-url "https://pypi.pkg.github.com/${{ github.repository_owner }}" \
+            --non-interactive \
+            dist/*

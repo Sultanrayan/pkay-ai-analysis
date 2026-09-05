@@ -1,3 +1,7 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "trading-analysis-bot"
 version = "0.1.0"
@@ -5,6 +9,19 @@ description = "Telegram trading analysis bot for BTCUSD & XAUUSD with a multi-ag
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "MIT" }
+authors = [{ name = "Sultanrayan", email = "errorkruzer1@gmail.com" }]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Office/Business :: Financial :: Investment",
+]
+urls = { Homepage = "https://github.com/Sultanrayan/pkay-ai-analysis", Repository = "https://github.com/Sultanrayan/pkay-ai-analysis" }
 dependencies = [
     "python-telegram-bot>=21.0,<23.0",
     "httpx>=0.27",
@@ -13,6 +30,11 @@ dependencies = [
     "python-dotenv>=1.0",
     "Pillow>=10.0",
 ]
+
+# Ship the SQL schema (used by scripts/init_db.py and the Postgres storage
+# backend) inside the package so installed wheels work out of the box.
+[tool.setuptools.package-data]
+"tradingbot.storage" = ["schema.sql"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
