@@ -1,5 +1,6 @@
 # Telegram bot framework (v20+ async API)
-python-telegram-bot>=21.0,<23.0
+# Use [webhooks] extra for webhook support (aiohttp)
+python-telegram-bot[webhooks]>=21.0,<23.0
 # Async HTTP client (also required by python-telegram-bot)
 httpx>=0.27
 # PostgreSQL driver (async)
