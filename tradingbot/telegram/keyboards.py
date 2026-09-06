@@ -45,7 +45,7 @@ def asset_picker(i18n: I18n) -> InlineKeyboardMarkup:
 
 def timeframe_picker(symbol_token: str, i18n: I18n) -> InlineKeyboardMarkup:
     """Timeframe grid for a symbol token (BTCUSD / XAUUSD / BOTH)."""
-    buttons = [
+    buttons: list[list[InlineKeyboardButton]] = [
         [
             _button(i18n.t("tf_1h"), cb.pick_timeframe(symbol_token, Timeframe.H1)),
             _button(i18n.t("tf_4h"), cb.pick_timeframe(symbol_token, Timeframe.H4)),
@@ -54,8 +54,8 @@ def timeframe_picker(symbol_token: str, i18n: I18n) -> InlineKeyboardMarkup:
             _button(i18n.t("tf_1d"), cb.pick_timeframe(symbol_token, Timeframe.D1)),
             _button(i18n.t("tf_1w"), cb.pick_timeframe(symbol_token, Timeframe.W1)),
         ],
-        back_row(i18n),
     ]
+    buttons.extend(back_row(i18n))
     return InlineKeyboardMarkup(buttons)
 
 
