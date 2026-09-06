@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import logging
 import os
+from copy import copy
 from dataclasses import dataclass, field
 from pathlib import Path
 

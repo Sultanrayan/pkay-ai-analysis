@@ -16,6 +16,7 @@ Railway deployment:
 from __future__ import annotations
 
 import sys
+import os
 
 from telegram import Update
 
@@ -36,10 +37,19 @@ def main() -> None:
             "add your token from @BotFather."
         )
     if not settings.telegram_webhook_url:
-        sys.exit(
-            "TELEGRAM_WEBHOOK_URL is empty. Set it to your public HTTPS URL "
-            "(e.g. https://bot.example.com/webhook) in .env."
-        )
+        # Auto-detect Railway domain if available
+        railway_domain = os.getenv("RAILWAY_PUBLIC_DOMAIN")
+        if railway_domain:
+            settings = Settings(
+                **{k: v for k, v in settings.__dict__.items() if k != "telegram_webhook_url"},
+                telegram_webhook_url=f"https://{railway_domain}/webhook",
+            )
+            print(f"Auto-configured TELEGRAM_WEBHOOK_URL: https://{railway_domain}/webhook")
+        else:
+            sys.exit(
+                "TELEGRAM_WEBHOOK_URL is empty. Set it to your public HTTPS URL "
+                "(e.g. https://bot.example.com/webhook) in .env."
+            )
 
     # Warn if webhook secret is not configured
     webhook_secret = get_webhook_secret()
