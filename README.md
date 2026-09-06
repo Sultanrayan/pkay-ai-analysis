@@ -548,11 +548,106 @@ graph TB
 
 ---
 
+## Railway Deployment
+
+This bot is configured for deployment on [Railway](https://railway.app).
+
+### Prerequisites
+
+1. **Railway account** — sign up at https://railway.app
+2. **GitHub repository** — push your code to GitHub (already done)
+3. **Telegram Bot Token** — from @BotFather
+4. **PostgreSQL database** — provisioned via Railway's PostgreSQL service
+5. **Redis** — provisioned via Railway's Redis service (optional, falls back to in-memory)
+
+### One-Click Deploy
+
+1. Go to https://railway.app/new
+2. Select **Deploy from GitHub repository**
+3. Choose your repository (`Sultanrayan/pkay-ai-analysis`)
+4. Railway will detect `railway.json` and configure the service automatically
+
+### Manual Deployment via CLI
+
+```bash
+# Login to Railway (already done)
+railway login
+
+# Create a new project
+railway init --project-name trading-bot
+
+# Link your GitHub repo
+railway link
+
+# Add PostgreSQL service
+railway add postgresql
+
+# Add Redis service (optional) 
+railway add redis
+
+# Deploy
+railway up
+```
+
+### Environment Variables
+
+Configure these in Railway's dashboard (Variables tab):
+
+| Variable | Value | Required |
+|----------|-------|----------|
+| `TELEGRAM_BOT_TOKEN` | Your bot token from @BotFather | **Yes** |
+| `TELEGRAM_WEBHOOK_URL` | Railway URL + `/webhook` (e.g. `https://your-project.up.railway.app/webhook`) | **Yes** |
+| `DATABASE_URL` | PostgreSQL connection string (auto-set by Railway) | **Yes** |
+| `REDIS_URL` | Redis connection string (auto-set by Railway) | No |
+| `WEBHOOK_SECRET` | Random secret for signature verification | **Recommended** |
+| `WEBHOOK_HOST` | `0.0.0.0` | No (default) |
+| `WEBHOOK_PORT` | Leave empty (uses Railway's `PORT` env) | No (default) |
+| `LOG_LEVEL` | `INFO` or `DEBUG` | No (default: INFO) |
+
+### Generate Webhook Secret
+
+```bash
+python -c "import secrets; print(secrets.token_hex(32))"
+```
+
+Copy the output and set it as `WEBHOOK_SECRET` in Railway.
+
+### Register Webhook with Telegram
+
+After deployment, get your Railway URL from the dashboard, then run:
+
+```bash
+python scripts/set_webhook.py --url https://your-project.up.railway.app/webhook
+```
+
+Or with a secret:
+
+```bash
+python scripts/set_webhook.py --url https://your-project.up.railway.app/webhook --secret your_webhook_secret
+```
+
+### Verify Deployment
+
+1. Open your bot in Telegram
+2. Send `/start`
+3. Send `/analyze` and verify you receive an analysis report
+4. Check Railway logs for any errors
+
+### Troubleshooting
+
+- **Webhook not receiving updates**: Verify `TELEGRAM_WEBHOOK_URL` matches your Railway URL exactly
+- **Database connection errors**: Check `DATABASE_URL` is set correctly in Railway
+- **Signature verification failing**: Ensure `WEBHOOK_SECRET` matches what was registered with Telegram
+- **Bot not responding**: Check Railway logs for Python errors; ensure `TELEGRAM_BOT_TOKEN` is valid
+
+---
+
 ## Repository Layout
 
 ```
 bot.py                       # Dev entry point (long polling)
 webhook_server.py            # Production entry point (webhook)
+railway.json                 # Railway deployment configuration
 docker-compose.yml           # PostgreSQL 16 + Redis 7 for local development
 scripts/                     # init_db.py, set_webhook.py, load_test.py
 
@@ -564,6 +659,7 @@ tradingbot/
 ├── application.py           # Shared Telegram Application assembly
 ├── charts.py                # Pillow candlestick chart renderer
 ├── exporter.py              # CSV export of analysis history
+├── webhook_security.py      # Telegram webhook signature verification
 ├── data/                    # Market data: Binance/Yahoo providers + demo fallback,
 │                            #   RSS/Fear&Greed sentiment, Redis/Null cache
 ├── agents/                  # Technical, Sentiment, Risk, Correlation + Decision engine
@@ -639,6 +735,9 @@ python scripts/set_webhook.py --url https://your-domain.com/webhook
 # Telegram
 TELEGRAM_BOT_TOKEN=your_bot_token_here
 TELEGRAM_WEBHOOK_URL=https://your-domain.com/webhook
+
+# Webhook Security
+WEBHOOK_SECRET=your_secret_here
 
 # Database
 DATABASE_URL=postgresql://user:password@localhost/trading_bot
@@ -718,6 +817,7 @@ graph TD
     SEC --> A6[Audit Logging<br/>All Actions Logged]
     SEC --> A7[Error Handling<br/>No Sensitive Data Leak]
     SEC --> A8[HTTPS Only<br/>SSL/TLS Required]
+    SEC --> A9[Webhook Secret<br/>HMAC Signature Verification]
 ```
 
 ---

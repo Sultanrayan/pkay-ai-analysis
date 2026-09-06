@@ -101,7 +101,8 @@ class Settings:
             if url.strip()
         )
         try:
-            webhook_port = int(os.getenv("WEBHOOK_PORT", "8443"))
+            railway_port = os.getenv("PORT")
+            webhook_port = int(os.getenv("WEBHOOK_PORT", railway_port or "8443"))
         except ValueError:
             webhook_port = 8443
         try:
