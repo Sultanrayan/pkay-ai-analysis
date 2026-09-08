@@ -2,6 +2,23 @@
 ## Research V3 
 ---
 
+> **Implementation status (core V3 upgrade, shipped in v3.0.0):**
+> This document is the V3 *specification/roadmap*. The repository currently
+> implements the **core** of it — multi-asset support (BTCUSDT, ETHUSDT,
+> SOLUSDT, XAUUSD), a 10-agent consensus system (technical/volume/volatility/
+> pattern/sentiment/on-chain/macro/risk/correlation/sniper), DeepSeek-V4-Flash
+> signal enrichment with a deterministic fallback, and a **signal-only**
+> memecoin sniper that never places orders.
+>
+> Items below that are **not yet implemented** in this repo: KMS/Vault
+> encryption, RabbitMQ, InfluxDB/Grafana/Prometheus dashboards, live
+> on-chain/macro feeds (Glassnode, Fed), DEX Screener/Raydium live scanning,
+> order execution, watchlist/alert/backtest commands, and the web dashboard.
+> Where relevant the code ships clearly-flagged demo/heuristic sources so those
+> features can be plugged in behind the existing interfaces.
+
+---
+
 ## Overview
 
 A **Telegram-based multi-asset trading analysis bot** that leverages **17+ specialized AI agents** powered by **DeepSeek-V4-Flash** to deliver high-quality trading signals for **BTCUSDT, ETHUSDT, SOLUSDT, XAUUSD**, and **Memecoins**.
