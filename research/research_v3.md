@@ -1,5 +1,5 @@
+## Research V3
 
-## Research V3 
 ---
 
 > **Implementation status (core V3 upgrade, shipped in v3.0.0):**
@@ -30,14 +30,16 @@ The bot combines **technical analysis, sentiment analysis, risk management, on-c
 ## Key Features
 
 ### Core Capabilities
+
 - **Multi-Asset Support** – BTCUSDT, ETHUSDT, SOLUSDT, XAUUSD
 - **Memecoin Sniper** – Real-time entry detection with safety checks
 - **17+ AI Agents** – DeepSeek-V4-Flash powered reasoning
 - **On-Demand Analysis** – Trigger analysis via Telegram commands
 - **Interactive UI** – Inline keyboards, rich formatting, charts
-- **Multi-Language** – Khmer & English interfaces
+- **Multi-Language** – Khmer &amp; English interfaces
 
 ### Enhanced Capabilities (v3.0)
+
 - **Cross-Asset Correlation** – Diversification strategies
 - **On-Chain Analysis** – Whale tracking, exchange flows
 - **Macro Economics** – Fed rates, inflation, DXY integration
@@ -161,7 +163,7 @@ graph TB
 
 ---
 
-##  AI Multi-Agent System
+## AI Multi-Agent System
 
 ### Agent Architecture
 
@@ -391,28 +393,30 @@ graph TB
 
 ### Security Checklist Implementation
 
-| Security Feature | Status | Implementation |
-|------------------|--------|----------------|
-| **KMS Envelope Encryption** | Implemented | AWS KMS with rotation |
-| **Sub-Account Isolation** |  Implemented | Per-exchange sub-accounts |
-| **API Key Rotation** |  Implemented | 30-day auto-rotation |
-| **Circuit Breaker** | Implemented | 3 failures → kill switch |
-| **Rate Limiting** |  Implemented | 10 requests/day/user |
-| **Audit Logging** |  Implemented | All actions logged |
-| **Withdrawal Whitelist** | Implemented | Pre-approved addresses |
-| **2FA Authentication** | Implemented | Admin commands only |
-| **IP Whitelist** | Implemented | Bind to server IP |
+
+| Security Feature            | Status      | Implementation            |
+| --------------------------- | ----------- | ------------------------- |
+| **KMS Envelope Encryption** | Implemented | AWS KMS with rotation     |
+| **Sub-Account Isolation**   | Implemented | Per-exchange sub-accounts |
+| **API Key Rotation**        | Implemented | 30-day auto-rotation      |
+| **Circuit Breaker**         | Implemented | 3 failures → kill switch  |
+| **Rate Limiting**           | Implemented | 10 requests/day/user      |
+| **Audit Logging**           | Implemented | All actions logged        |
+| **Withdrawal Whitelist**    | Implemented | Pre-approved addresses    |
+| **2FA Authentication**      | Implemented | Admin commands only       |
+| **IP Whitelist**            | Implemented | Bind to server IP         |
+
 
 ---
 
-## User Interface & Bot Experience
+## User Interface &amp; Bot Experience
 
 ### Telegram Bot UI Flow
 
 ```mermaid
-graph TD
+flowchart TD
     START([User Opens Telegram]) --> START_CMD[Sends /start]
-    START_CMD --> WELCOME [Welcome Message + Main Menu]
+    START_CMD --> WELCOME["Welcome Message + Main Menu"]
     
     WELCOME --> MENU{User Action}
     
@@ -424,7 +428,7 @@ graph TD
     MENU -->|ℹHelp| HELP[Help Guide]
     
     ASSET --> SELECT{Choose Asset}
-    SELECT -->|BTCUSDT| TIMEFRAME
+    SELECT -->|BTCUSDT| TIMEFRAME[Select Timeframe]
     SELECT -->|ETHUSDT| TIMEFRAME
     SELECT -->|SOLUSDT| TIMEFRAME
     SELECT -->|XAUUSD| TIMEFRAME
@@ -439,21 +443,23 @@ graph TD
     REPORT --> ACTIONS[Action Buttons]
     
     ACTIONS -->|Refresh| ANALYZE
-    ACTIONS -->|History| HISTORY
-    ACTIONS -->|Export| EXPORT
+    ACTIONS -->|History| HISTORY[View History]
+    ACTIONS -->|Export| EXPORT[Export Data]
     ACTIONS -->|Menu| WELCOME
 ```
 
 ### UI Improvements (v3.0)
 
-| Feature | v2.0 | v3.0 Enhancement |
-|---------|------|------------------|
-| **Message Formatting** | Basic | Rich formatting with emojis, tables, progress bars |
-| **Inline Buttons** | Limited | Multi-level navigation with dynamic buttons |
-| **Chart Generation** | Simple | Interactive charts with indicators overlay |
-| **Performance Dashboard** | Missing | Real-time performance metrics |
-| **Watchlist** | Missing | Custom watchlist with alerts |
-| **Multi-Language** | Partial | Full Khmer & English with auto-detection |
+
+| Feature                   | v2.0    | v3.0 Enhancement                                   |
+| ------------------------- | ------- | -------------------------------------------------- |
+| **Message Formatting**    | Basic   | Rich formatting with emojis, tables, progress bars |
+| **Inline Buttons**        | Limited | Multi-level navigation with dynamic buttons        |
+| **Chart Generation**      | Simple  | Interactive charts with indicators overlay         |
+| **Performance Dashboard** | Missing | Real-time performance metrics                      |
+| **Watchlist**             | Missing | Custom watchlist with alerts                       |
+| **Multi-Language**        | Partial | Full Khmer &amp; English with auto-detection       |
+
 
 ### Sample Message Format
 
@@ -923,22 +929,24 @@ erDiagram
 
 ## Telegram Bot Commands (Enhanced)
 
-| Command | Description | Example |
-|---------|-------------|---------|
-| `/start` | Start bot with welcome menu | `/start` |
-| `/analyze <symbol> <timeframe>` | Run multi-agent analysis | `/analyze BTCUSDT 1h` |
-| `/sniper <token> <amount>` | Execute memecoin sniper entry | `/sniper PEPE_X 100` |
-| `/watchlist add <symbol>` | Add to watchlist | `/watchlist add ETHUSDT` |
-| `/watchlist remove <symbol>` | Remove from watchlist | `/watchlist remove ETHUSDT` |
-| `/watchlist list` | List all watchlist items | `/watchlist list` |
-| `/alert <symbol> <price> <condition>` | Set price alert | `/alert BTCUSDT 62000 above` |
-| `/signals` | Get latest trading signals | `/signals` |
-| `/performance` | Show trading performance | `/performance` |
-| `/backtest <symbol> <start> <end>` | Run backtest | `/backtest BTCUSDT 2026-01-01 2026-08-01` |
-| `/settings` | Configure bot settings | `/settings` |
-| `/help` | Show help guide | `/help` |
-| `/about` | Bot information | `/about` |
-| `/cancel` | Cancel current operation | `/cancel` |
+
+| Command                               | Description                   | Example                                   |
+| ------------------------------------- | ----------------------------- | ----------------------------------------- |
+| `/start`                              | Start bot with welcome menu   | `/start`                                  |
+| `/analyze <symbol> <timeframe>`       | Run multi-agent analysis      | `/analyze BTCUSDT 1h`                     |
+| `/sniper <token> <amount>`            | Execute memecoin sniper entry | `/sniper PEPE_X 100`                      |
+| `/watchlist add <symbol>`             | Add to watchlist              | `/watchlist add ETHUSDT`                  |
+| `/watchlist remove <symbol>`          | Remove from watchlist         | `/watchlist remove ETHUSDT`               |
+| `/watchlist list`                     | List all watchlist items      | `/watchlist list`                         |
+| `/alert <symbol> <price> <condition>` | Set price alert               | `/alert BTCUSDT 62000 above`              |
+| `/signals`                            | Get latest trading signals    | `/signals`                                |
+| `/performance`                        | Show trading performance      | `/performance`                            |
+| `/backtest <symbol> <start> <end>`    | Run backtest                  | `/backtest BTCUSDT 2026-01-01 2026-08-01` |
+| `/settings`                           | Configure bot settings        | `/settings`                               |
+| `/help`                               | Show help guide               | `/help`                                   |
+| `/about`                              | Bot information               | `/about`                                  |
+| `/cancel`                             | Cancel current operation      | `/cancel`                                 |
+
 
 ---
 
@@ -1028,6 +1036,7 @@ graph TB
 ## Getting Started
 
 ### Prerequisites
+
 - Python 3.9+
 - PostgreSQL 15+
 - Redis 7+
@@ -1086,37 +1095,41 @@ GRAFANA_DASHBOARD=/dashboards/
 
 ## Performance Metrics
 
-| Metric | v2.0 | v3.0 | Improvement |
-|--------|------|------|-------------|
-| **Signal Accuracy** | 62% | 78% | +16% |
-| **Average Analysis Time** | 2.8s | 1.8s | -36% |
-| **Concurrent Users** | 100 | 500+ | +400% |
-| **Cache Hit Rate** | 75% | 92% | +17% |
-| **Response Time** | 200ms | 95ms | -53% |
-| **API Uptime** | 99.5% | 99.95% | +0.45% |
-| **Agent Consensus** | 5 Agents | 17 Agents | +240% |
-| **Win Rate (Backtest)** | 54% | 68% | +14% |
+
+| Metric                    | v2.0     | v3.0      | Improvement |
+| ------------------------- | -------- | --------- | ----------- |
+| **Signal Accuracy**       | 62%      | 78%       | +16%        |
+| **Average Analysis Time** | 2.8s     | 1.8s      | -36%        |
+| **Concurrent Users**      | 100      | 500+      | +400%       |
+| **Cache Hit Rate**        | 75%      | 92%       | +17%        |
+| **Response Time**         | 200ms    | 95ms      | -53%        |
+| **API Uptime**            | 99.5%    | 99.95%    | +0.45%      |
+| **Agent Consensus**       | 5 Agents | 17 Agents | +240%       |
+| **Win Rate (Backtest)**   | 54%      | 68%       | +14%        |
+
 
 ---
 
 ## Security Features ( D = Done )
 
-| Security Feature | Status | Description |
-|------------------|--------|-------------|
-| **KMS Envelope Encryption** | D | AWS KMS for private key protection |
-| **Sub-Account Isolation** | D | Per-exchange sub-accounts |
-| **API Key Rotation** | D | 30-day auto-rotation |
-| **Circuit Breaker** | D | 3 failures → kill switch |
-| **Rate Limiting** | D | 10 requests/day/user |
-| **Audit Logging** | D | All actions logged |
-| **Withdrawal Whitelist** | D | Pre-approved addresses |
-| **2FA Authentication** | D | Admin commands only |
-| **IP Whitelist** | D | Bind to server IP |
-| **Sensitive Data Masking** | D | No PII in logs |
+
+| Security Feature            | Status | Description                        |
+| --------------------------- | ------ | ---------------------------------- |
+| **KMS Envelope Encryption** | D      | AWS KMS for private key protection |
+| **Sub-Account Isolation**   | D      | Per-exchange sub-accounts          |
+| **API Key Rotation**        | D      | 30-day auto-rotation               |
+| **Circuit Breaker**         | D      | 3 failures → kill switch           |
+| **Rate Limiting**           | D      | 10 requests/day/user               |
+| **Audit Logging**           | D      | All actions logged                 |
+| **Withdrawal Whitelist**    | D      | Pre-approved addresses             |
+| **2FA Authentication**      | D      | Admin commands only                |
+| **IP Whitelist**            | D      | Bind to server IP                  |
+| **Sensitive Data Masking**  | D      | No PII in logs                     |
+
 
 ---
 
-## Monitoring & Alerts
+## Monitoring &amp; Alerts
 
 ### Metrics Collected
 
@@ -1128,13 +1141,16 @@ GRAFANA_DASHBOARD=/dashboards/
 
 ### Alert Rules
 
-| Alert | Threshold | Channel |
-|-------|-----------|---------|
-| API Down | 5 failures in 1 minute | PagerDuty |
-| High Latency | > 500ms for 1 minute | Telegram |
-| Security Threat | API key suspected | Telegram + Email |
-| Circuit Breaker | 3 failed transactions | Telegram + PagerDuty |
-| Low Signal Accuracy | < 60% for 5 signals | Telegram |
-| System Error | 5 errors in 1 minute | Telegram + Email |
+
+| Alert               | Threshold               | Channel              |
+| ------------------- | ----------------------- | -------------------- |
+| API Down            | 5 failures in 1 minute  | PagerDuty            |
+| High Latency        | &gt; 500ms for 1 minute | Telegram             |
+| Security Threat     | API key suspected       | Telegram + Email     |
+| Circuit Breaker     | 3 failed transactions   | Telegram + PagerDuty |
+| Low Signal Accuracy | &lt; 60% for 5 signals  | Telegram             |
+| System Error        | 5 errors in 1 minute    | Telegram + Email     |
+
 
 ---
+
