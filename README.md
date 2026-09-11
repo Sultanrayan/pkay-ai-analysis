@@ -1,32 +1,49 @@
-# Trading Analysis Bot - BTCUSD & XAUUSD (Telegram Bot)
+# Trading Analysis Bot V3 — Multi-Asset AI (Telegram Bot)
 
 ## Overview
 
-A **Telegram-based trading analysis bot** that provides on-demand technical and sentiment analysis for **BTCUSD** and **XAUUSD** trading pairs. Users interact directly with a Telegram bot — simply type commands or click buttons to trigger analysis and receive comprehensive trading reports instantly.
+A **Telegram-based multi-asset trading analysis bot** that delivers on-demand,
+multi-agent analysis for **BTCUSDT, ETHUSDT, SOLUSDT** and **XAUUSD**, plus a
+**signal-only memecoin sniper** scan. Users interact directly with a Telegram
+bot — type a command or tap a button to get a comprehensive trading report.
 
-The bot uses a **multi-agent architecture** with specialized agents for technical indicators, market sentiment, risk management, and correlation analysis, all accessible through an intuitive Telegram interface.
+The bot uses **10 specialized AI agents** grouped into teams — technical,
+market intelligence and risk — whose consensus drives the signal, with
+optional **DeepSeek-V4-Flash** enrichment for the final call. Everything is
+built to be clean, testable and honest about its data provenance (demo vs
+live).
+
+> **V3 roadmap:** the full enterprise spec (KMS, RabbitMQ, InfluxDB/Grafana,
+> live on-chain feeds, order execution) lives in
+> [`research/research_v3.md`](research/research_v3.md). This repository
+> implements the core V3 upgrade; the sniper is **signal-only** and never
+> places orders.
 
 ---
 
 ## Key Features
 
-- **Telegram-First Interface** – All interactions happen within Telegram
-- **On-Demand Analysis** – Analysis runs only when user sends a command
-- **Interactive Buttons** – Easy-to-use inline keyboards for navigation
-- **Multi-Agent Architecture** – Specialized agents for comprehensive analysis
-- **Dual Asset Support** – BTCUSD and XAUUSD with cross-asset correlation
-- **Real-time Data** – Fetches latest price data and news sentiment
-- **Risk Management** – Position sizing, stop-loss, and take-profit calculations
-- **Rate Limiting** – Prevents abuse with daily request limits per user
-- **Rich Formatting** – Formatted messages with emojis, bold text, and code blocks
-- **Analysis History** – Users can view their past analysis reports
-- **Multi-language Support** – Khmer and English interfaces
+- **Multi-Asset** – BTCUSDT, ETHUSDT, SOLUSDT, XAUUSD (+ "All" analyses)
+- **10 Specialized Agents** – technical, volume, volatility, pattern,
+  sentiment, on-chain, macro, risk, correlation, sniper
+- **DeepSeek-V4-Flash Enrichment** – optional LLM final signal with graceful
+  fallback to the deterministic engine
+- **Signal-Only Memecoin Sniper** – opportunity ranking + safety checks,
+  never executes trades
+- **On-Demand Analysis** – runs only when you ask (`/analyze ETHUSDT 4h`)
+- **Interactive UI** – inline keyboards, rich formatting, candlestick charts
+- **Multi-Language** – Khmer & English interfaces
+- **Cross-Asset Correlation** – BTC↔XAU and ETH↔SOL return correlation
+- **Risk Management** – ATR-based stops, take-profit and position sizing
+- **Rate Limiting** – daily per-user analysis cap (Redis or in-memory)
+- **Resilient Data** – live APIs (Binance/Yahoo/RSS/Fear&Greed) with a
+  deterministic demo fallback so a chat always stays usable
 
 ---
 
 ## System Architecture
 
-### High-Level Architecture (Telegram-Focused)
+### High-Level Architecture
 
 ```mermaid
 graph TB
@@ -34,188 +51,283 @@ graph TB
         U[User]
         TG[Telegram App]
     end
-    
+
     subgraph "Telegram Layer"
         WEBHOOK[Telegram Webhook]
         BOT[Bot Handler]
         CMD[Command Parser]
         CALLBACK[Callback Query Handler]
     end
-    
+
     subgraph "Processing Layer"
         DM[Data Manager]
-        TA[Technical Analysis Agent]
-        SA[Sentiment Analysis Agent]
-        RM[Risk Management Agent]
-        CA[Correlation Analysis Agent]
-        DE[Decision Engine]
+        ORCH[Analysis Runner]
+        LLM[DeepSeek-V4-Flash]
         FORM[Message Formatter]
     end
-    
+
+    subgraph "Agent Layer"
+        TA[Technical Team<br/>technical · volume · volatility · pattern]
+        MI[Market Intel Team<br/>sentiment · on-chain · macro · correlation]
+        RM[Risk Agent]
+        SN[Sniper Agent<br/>signal-only]
+        DE[Decision Engine]
+    end
+
     subgraph "Data Layer"
-        PF[Price Feed API]
-        NF[News/Sentiment API]
-        DB[(Database)]
+        PF[Binance / Yahoo Price Feed]
+        NF[News / Fear&Greed]
+        SIM[Simulated Sources<br/>on-chain · macro · sniper]
+        DB[(PostgreSQL)]
         CACHE[(Redis Cache)]
     end
-    
+
     subgraph "Response Layer"
         MSG[Formatted Message]
         KEYBOARD[Inline Keyboard]
         IMG[Chart Image]
     end
-    
+
     U -->|"/analyze"| TG
     TG --> WEBHOOK
     WEBHOOK --> BOT
     BOT --> CMD
     BOT --> CALLBACK
-    
-    CMD --> DM
-    CALLBACK --> DM
-    
-    DM -->|Check Cache| CACHE
-    DM -->|Fetch Data| PF
-    DM -->|Fetch News| NF
+
+    CMD --> ORCH
+    CALLBACK --> ORCH
+    ORCH --> DM
+
+    DM -->|Candles| PF
+    DM -->|Sentiment| NF
+    DM -->|Heuristics| SIM
     DM --> DB
-    
+    DM --> CACHE
+
     DM --> TA
-    DM --> SA
+    DM --> MI
     DM --> RM
-    DM --> CA
-    
+    DM --> SN
+
     TA --> DE
-    SA --> DE
+    MI --> DE
     RM --> DE
-    CA --> DE
-    
+    DE --> LLM
+    LLM --> FORM
     DE --> FORM
     FORM --> MSG
     FORM --> KEYBOARD
     FORM --> IMG
-    
+
     MSG --> TG
     KEYBOARD --> TG
     IMG --> TG
-    
     TG --> U
+```
+
+### Multi-Agent System
+
+| Team | Weight | Agents |
+|------|--------|--------|
+| **Technical** | 35% | `technical` (trend & momentum) · `volume` (OBV) · `volatility` (Bollinger) · `pattern` (breakouts) |
+| **Market Intel** | 25% | `sentiment` (news & Fear&Greed) · `onchain` (whale/flows) · `macro` (rates/DXY/inflation) · `correlation` (BTC↔XAU, ETH↔SOL) |
+| **Risk** | 20% | `risk` (ATR stops, position sizing) |
+| **Sniper** | — (informational) | `sniper` — signal-only memecoin scan, never executes |
+
+The directional signal is the team-weighted consensus (technical 0.35 +
+market intel 0.25 + risk 0.20, normalized to /100). `confidence` is derived
+from how strongly and unanimously the agents agree. The sniper block is
+reported separately: opportunities and their safety profile, with a clear
+"no orders are ever placed" disclaimer.
+
+### Agent Signal Generation Flow
+
+```mermaid
+sequenceDiagram
+    participant U as User
+    participant O as Orchestrator (Runner)
+    participant T as Technical Team (4 agents)
+    participant M as Market Intel (4 agents)
+    participant R as Risk Agent
+    participant S as Sniper Agent
+    participant D as Decision Engine
+    participant L as DeepSeek-V4-Flash (optional)
+
+    U->>O: /analyze ETHUSDT 1h
+    O->>O: Fetch candles, sentiment, on-chain, macro, sniper scan
+
+    par Agent Execution
+        O->>T: Analyze technicals (4 agents)
+        T-->>O: Scores + reasoning
+        O->>M: Gather market intel (4 agents)
+        M-->>O: Scores + reasoning
+        O->>R: Risk assessment
+        R-->>O: SL/TP + position size
+        O->>S: Memecoin scan (signal-only)
+        S-->>O: Opportunity + safety scores
+    end
+
+    O->>D: Weighted consensus
+    D-->>O: Signal + confidence + summary
+    O->>L: Enrich final call (if configured)
+    L-->>O: AI signal/summary or None (fallback)
+    O-->>U: Complete report
 ```
 
 ---
 
-## Telegram Bot Flow Diagram
+## Telegram Bot Flow
 
 ```mermaid
 flowchart TD
     START([User Opens Telegram]) --> START_CMD[Sends /start]
-    START_CMD --> WELCOME[Bot Shows Welcome Message + Menu]
-    
+    START_CMD --> WELCOME[Welcome Message + Main Menu]
+
     WELCOME --> MENU{User Action}
-    
-    MENU -->|"Click Analyze"| SELECT[Select Asset]
-    MENU -->|"Click History"| HISTORY[Show Past Analysis]
-    MENU -->|"Click Help"| HELP[Show Help Guide]
-    MENU -->|"Click Settings"| SETTINGS[User Preferences]
-    
+
+    MENU -->|"Analyze"| SELECT[Select Asset]
+    MENU -->|"Sniper"| SNIPER[Memecoin Scan]
+    MENU -->|"History"| HISTORY[Show Past Analysis]
+    MENU -->|"Settings"| SETTINGS[User Preferences]
+    MENU -->|"Help"| HELP[Help Guide]
+
     SELECT --> SELECT_ASSET{Choose Asset}
-    
-    SELECT_ASSET -->|BTCUSD| TIMEFRAME_BTC[Select Timeframe]
-    SELECT_ASSET -->|XAUUSD| TIMEFRAME_XAU[Select Timeframe]
-    SELECT_ASSET -->|Both| TIMEFRAME_BOTH[Select Timeframe]
-    
-    TIMEFRAME_BTC --> TIMEFRAME{Choose Timeframe}
-    TIMEFRAME_XAU --> TIMEFRAME
-    TIMEFRAME_BOTH --> TIMEFRAME
-    
-    TIMEFRAME -->|1H| ANALYZE[Run Analysis]
-    TIMEFRAME -->|4H| ANALYZE
-    TIMEFRAME -->|1D| ANALYZE
-    TIMEFRAME -->|1W| ANALYZE
-    
+    SELECT_ASSET -->|BTCUSDT| TIMEFRAME
+    SELECT_ASSET -->|ETHUSDT| TIMEFRAME
+    SELECT_ASSET -->|SOLUSDT| TIMEFRAME
+    SELECT_ASSET -->|XAUUSD| TIMEFRAME
+    SELECT_ASSET -->|All| TIMEFRAME
+    SELECT_ASSET -->|Memecoin| SNIPER
+
+    TIMEFRAME -->|1H / 4H / 1D / 1W| ANALYZE[Run Analysis]
     ANALYZE --> FETCH[Fetch Data]
-    FETCH --> PROCESS[Process Analysis]
-    PROCESS --> GEN_REPORT[Generate Report]
-    
+    FETCH --> PROCESS[Run 10 Agents]
+    PROCESS --> DECIDE[Decision Engine + LLM]
+    DECIDE --> GEN_REPORT[Generate Report]
+
     GEN_REPORT --> DISPLAY[Display Formatted Report]
-    DISPLAY --> BUTTONS[Show Action Buttons]
-    
+    DISPLAY --> BUTTONS[Action Buttons]
     BUTTONS --> ACTION{User Action}
-    
     ACTION -->|"Refresh"| ANALYZE
+    ACTION -->|"Export"| EXPORT[Send CSV]
+    ACTION -->|"Sniper"| SNIPER
     ACTION -->|"History"| HISTORY
-    ACTION -->|"Export"| EXPORT[Export to PDF/CSV]
     ACTION -->|"Main Menu"| WELCOME
-    
+
     HISTORY --> SHOW_HIST[Show Last 10 Analyses]
-    SHOW_HIST --> HIST_ACTION{Select Action}
-    HIST_ACTION -->|View Detail| SHOW_DETAIL[Show Full Report]
-    HIST_ACTION -->|Main Menu| WELCOME
-    
-    EXPORT --> GENERATE[Generate File]
-    GENERATE --> SEND_FILE[Send File to User]
-    SEND_FILE --> WELCOME
-    
-    HELP --> SHOW_HELP[Show Help Information]
-    SHOW_HELP --> WELCOME
+    SNIPER --> SNIPER_REPORT[Opportunities + Safety]
 ```
 
 ---
 
-## Multi-Agent System Architecture (Telegram Edition)
+## Bot Commands Reference
 
-```mermaid
-graph LR
-    subgraph "Telegram Input"
-        CMD[/analyze BTCUSD/]
-        BTN[Inline Button Click]
-    end
-    
-    subgraph "Agent Layer"
-        A1["Agent 1<br/>Technical Analysis<br/>━━━━━━━━━━━━━━<br/>• RSI, MACD, MA<br/>• Support/Resistance<br/>• Chart Patterns<br/>• Score: 0-100"]
-        
-        A2["Agent 2<br/>Sentiment Analysis<br/>━━━━━━━━━━━━━━<br/>• News Sentiment<br/>• Fear & Greed Index<br/>• Social Volume<br/>• Score: -100 to +100"]
-        
-        A3["Agent 3<br/>Risk Management<br/>━━━━━━━━━━━━━━<br/>• Volatility (ATR)<br/>• Position Sizing<br/>• Stop Loss / TP<br/>• Risk Score"]
-        
-        A4["Agent 4<br/>Correlation Analysis<br/>━━━━━━━━━━━━━━<br/>• BTC ↔ XAU<br/>• Divergence<br/>• Arbitrage Opp.<br/>• Correlation Score"]
-    end
-    
-    subgraph "Decision Layer"
-        DE["Decision Engine<br/>━━━━━━━━━━━━━━<br/>Weighted Score:<br/>(Tech×0.4)+(Sent×0.3)<br/>+(Risk×0.2)+(Corr×0.1)"]
-    end
-    
-    subgraph "Telegram Output"
-        OUT["Analysis Report<br/>━━━━━━━━━━━━━━<br/>Price: $60,123<br/>Signal: HOLD<br/>RSI: 65.2<br/>Sentiment: Positive<br/>Risk: 2.5%<br/>━━━━━━━━━━━━━━<br/>[Refresh] [History] [Menu]"]
-    end
-    
-    CMD --> A1
-    CMD --> A2
-    CMD --> A3
-    CMD --> A4
-    BTN --> A1
-    BTN --> A2
-    BTN --> A3
-    BTN --> A4
-    
-    A1 -->|Tech Score| DE
-    A2 -->|Sentiment Score| DE
-    A3 -->|Risk Score| DE
-    A4 -->|Correlation Score| DE
-    
-    DE -->|Total Score + Signal| OUT
+| Command | Description | Example |
+|---------|-------------|---------|
+| `/start` | Start the bot and show main menu | `/start` |
+| `/analyze` | Begin analysis workflow | `/analyze` or `/analyze ETHUSDT 4h` or `/analyze all 1d` |
+| `/sniper` | Memecoin scan (signal-only, never places orders) | `/sniper` |
+| `/history` | View your analysis history | `/history` |
+| `/settings` | Configure bot preferences | `/settings` |
+| `/help` | Show help guide | `/help` |
+| `/about` | Bot information | `/about` |
+| `/cancel` | Cancel current operation | `/cancel` |
+
+---
+
+## Sample Report
+
+```
+📊 BTCUSDT Analysis Report
+Time: 08/09/2026 14:30 UTC · Timeframe: 1H
+🤖 AI-enhanced (DeepSeek-V4-Flash)
+━━━━━━━━━━━━━━━━━━━━━
+💰 Current Price: $64,120.50
+Signal: 🟢 BUY (Score: +58/100 · Confidence: 82%)
+
+━━━━━━━━━━━━━━━━━━━━━
+🤝 Agent Consensus (4 teams)
+📈 Technical Indicators: ████████░░ 78% (+58.0)
+💬 Market Sentiment:     ██████░░░░ 62% (+24.0)
+🛡️ Risk Management:      ███████░░░ 70% (+40.0)
+🎯 Sniper Scan:          ███░░░░░░░ 31% (Opportunity)
+
+━━━━━━━━━━━━━━━━━━━━━
+📈 Technical Indicators
+• RSI (14): 58.4
+• MACD: 0.0034
+• MA 50: $63,900
+• MA 200: $62,400
+• Volume: 1.35x avg
+• OBV trend: +18
+• Volatility: 2.1% band · Band squeeze
+• Pattern: bullish
+• Support: $63,200
+• Resistance: $65,100
+
+━━━━━━━━━━━━━━━━━━━━━
+💬 Market Sentiment
+• News: +12.0 (8 headlines)
+• Fear & Greed: 64 (Greed)
+• Social Volume: 1,240
+
+━━━━━━━━━━━━━━━━━━━━━
+⛓ On-Chain
+• Whale activity: +42.0
+• Exchange netflow: +28.0
+• Active addresses: +15.0
+• MVRV: 2.10
+• SOPR: 1.050
+
+━━━━━━━━━━━━━━━━━━━━━
+🌐 Macro
+• Rate policy: +30
+• DXY (dollar): -20
+• Inflation: +40
+
+━━━━━━━━━━━━━━━━━━━━━
+🛡️ Risk Management
+• Stop Loss: $62,900 (-1.9%)
+• Take Profit: $66,100 (+3.1%)
+• Position Size: 2.5%
+• Volatility: 1.4% (Medium)
+• ATR (14): 890.00
+
+━━━━━━━━━━━━━━━━━━━━━
+🔗 Correlation
+• Correlation (r): r = -0.12 (XAUUSD)
+  low correlation (r=-0.12) — assets behave independently
+
+━━━━━━━━━━━━━━━━━━━━━
+🎯 Sniper Scan
+• Opportunity: 31/100 · Safety 92/100
+• PEPE_X (solana): Liquidity $2,100,000 · Hype 85 · Safety 92 · +18.4%
+ℹ️ Signal-only detection — no orders are ever placed.
+
+━━━━━━━━━━━━━━━━━━━━━
+📝 Summary
+Technical view is bullish (RSI 58.4), price above the 50-period average.
+News sentiment +12.0, Fear & Greed 64 (Greed). On-chain flows are
+heuristic (simulated) in this build. Macro backdrop risk-on (simulated
+values). Volatility 1.40%/candle (Medium); suggested stop at 62,900 and
+target at 66,100 with ~2.5% position. Correlation with XAUUSD is
+r=-0.12 (+12.0/100 contribution). Signal is BUY with total score +58.0/100.
+
+[🔄 Refresh] [📄 Export] [🎯 Sniper] [🕘 History] [🏠 Main Menu]
 ```
 
 ---
 
-## Database Schema (Telegram Users)
+## Database Schema
 
 ```mermaid
 erDiagram
+    TELEGRAM_USERS ||--o{ ANALYSIS_HISTORY : performs
+    TELEGRAM_USERS ||--|| USER_PREFERENCES : has
+
     TELEGRAM_USERS {
         bigint user_id PK
         string username
-        string first_name
-        string last_name
         string language_code "kh/en"
         int daily_requests
         date last_request_date
@@ -224,7 +336,7 @@ erDiagram
         datetime created_at
         datetime last_active
     }
-    
+
     ANALYSIS_HISTORY {
         int id PK
         bigint user_id FK
@@ -233,13 +345,19 @@ erDiagram
         datetime timestamp
         decimal current_price
         int technical_score
+        int volume_score
+        int volatility_score
+        int pattern_score
         int sentiment_score
+        int onchain_score
+        int macro_score
         int risk_score
         int correlation_score
+        int sniper_score
         int total_score
+        decimal confidence
         string signal
         decimal rsi
-        decimal macd
         decimal ma_50
         decimal ma_200
         decimal support
@@ -251,12 +369,14 @@ erDiagram
         text summary
         string chart_url
         int response_time_ms
-        string message_id "Telegram message ID"
+        bigint message_id
+        boolean llm_enhanced
+        jsonb agent_contributions
     }
-    
+
     USER_PREFERENCES {
         bigint user_id PK
-        string default_symbol "BTCUSD"
+        string default_symbol "BTCUSDT"
         string default_timeframe "1h"
         boolean show_chart "true"
         boolean show_indicators "true"
@@ -265,425 +385,22 @@ erDiagram
         string notification_enabled "daily"
         datetime updated_at
     }
-    
-    TELEGRAM_USERS ||--o{ ANALYSIS_HISTORY : performs
-    TELEGRAM_USERS ||--|| USER_PREFERENCES : has
 ```
+
+The schema lives in `tradingbot/storage/schema.sql`. Existing databases are
+migrated automatically at startup with idempotent `ADD COLUMN IF NOT EXISTS`
+statements, so upgrading from v2 keeps your history.
 
 ---
 
-## Telegram Bot Commands & Interactions
-
-```mermaid
-graph TD
-    subgraph "Commands"
-        C1[/start - Welcome & Menu/]
-        C2[/analyze - Start Analysis/]
-        C3[/history - View History/]
-        C4[/settings - User Settings/]
-        C5[/help - Help Guide/]
-        C6[/about - Bot Info/]
-    end
-    
-    subgraph "Inline Keyboards"
-        K1["Asset Selection<br/>BTCUSD | XAUUSD | Both"]
-        K2["Timeframe Selection<br/>1H | 4H | 1D | 1W"]
-        K3["Action Buttons<br/>Refresh | History | Export | Menu"]
-        K4["Settings Options<br/>Language | Defaults | Notifications"]
-    end
-    
-    subgraph "Responses"
-        R1[Welcome Message<br/>with Menu Keyboard]
-        R2[Analysis Report<br/>with Action Buttons]
-        R3[History List<br/>with Selection Buttons]
-        R4[Settings Panel<br/>with Toggle Buttons]
-        R5[Help Guide<br/>with Command List]
-    end
-    
-    C1 --> R1
-    R1 --> K1
-    
-    C2 --> K1
-    K1 --> K2
-    K2 --> R2
-    R2 --> K3
-    
-    C3 --> R3
-    R3 --> K3
-    
-    C4 --> R4
-    R4 --> K4
-    
-    C5 --> R5
-    C6 --> R5
-```
-
----
-
-## Sample Telegram Conversation Flow
-
-```mermaid
-sequenceDiagram
-    participant U as User
-    participant TG as Telegram
-    participant B as Bot Handler
-    participant A as Analysis Engine
-    participant DB as Database
-    participant API as External APIs
-
-    U->>TG: /start
-    TG->>B: Webhook: /start
-    B->>DB: Get/Create User
-    DB-->>B: User Data
-    B->>TG: Welcome Message + Menu
-    
-    U->>TG: Click "Analyze"
-    TG->>B: Callback: analyze
-    B->>TG: Asset Selection Keyboard
-    
-    U->>TG: Click "BTCUSD"
-    TG->>B: Callback: btcusd
-    B->>TG: Timeframe Selection Keyboard
-    
-    U->>TG: Click "1H"
-    TG->>B: Callback: 1h
-    
-    B->>API: Fetch Price Data
-    API-->>B: OHLCV Data
-    B->>API: Fetch News/Sentiment
-    API-->>B: Sentiment Data
-    
-    B->>A: Run Analysis
-    A-->>B: Analysis Results
-    
-    B->>DB: Save Analysis Record
-    DB-->>B: Record Saved
-    
-    B->>TG: Format Report + Buttons
-    TG-->>U: Analysis Report
-    
-    U->>TG: Click "Refresh"
-    TG->>B: Callback: refresh
-    B->>A: Re-run Analysis
-    A-->>B: New Results
-    B->>TG: Updated Report
-    
-    U->>TG: Click "History"
-    TG->>B: Callback: history
-    B->>DB: Fetch User History
-    DB-->>B: Last 10 Analyses
-    B->>TG: History List
-```
-
----
-
-## Technology Stack (Telegram Edition)
-
-```mermaid
-graph TD
-    subgraph "Frontend (Telegram)"
-        API[python-telegram-bot v20+]
-        WEBHOOK[Telegram Webhook]
-        POLLING[Long Polling Fallback]
-    end
-    
-    subgraph "Backend"
-        FRAMEWORK[Flask / FastAPI<br/>Webhook Handler]
-        BOT[Bot Dispatcher<br/>Command & Callback Handlers]
-        CONVERSATION[Conversation Handler<br/>Multi-step Flows]
-        KEYBOARD[Inline Keyboard Builder]
-        FORMAT[Message Formatter<br/>HTML/MarkdownV2]
-    end
-    
-    subgraph "Processing"
-        PANDAS[Pandas / NumPy]
-        TA_LIB[TA-Lib]
-        CCXT[CCXT Library]
-        PIL[Pillow - Chart Generator]
-    end
-    
-    subgraph "Data Storage"
-        TSDB[InfluxDB]
-        RDB[PostgreSQL]
-        CACHE[Redis]
-    end
-    
-    subgraph "External APIs"
-        BINANCE[Binance API]
-        NEWS[News API]
-        CHART[Chart API]
-    end
-    
-    API --> BOT
-    WEBHOOK --> FRAMEWORK
-    POLLING --> BOT
-    
-    BOT --> CONVERSATION
-    BOT --> KEYBOARD
-    BOT --> FORMAT
-    
-    CONVERSATION --> PANDAS
-    CONVERSATION --> TA_LIB
-    CONVERSATION --> CCXT
-    
-    PANDAS --> TSDB
-    CONVERSATION --> RDB
-    CONVERSATION --> CACHE
-    
-    CCXT --> BINANCE
-    FORMAT --> PIL
-    PIL --> CHART
-```
-
----
-
-## Bot Commands Reference
-
-| Command | Description | Example |
-|---------|-------------|---------|
-| `/start` | Start the bot and show main menu | `/start` |
-| `/analyze` | Begin analysis workflow | `/analyze` or `/analyze BTCUSD 1h` |
-| `/history` | View your analysis history | `/history` |
-| `/settings` | Configure bot preferences | `/settings` |
-| `/help` | Show help guide | `/help` |
-| `/about` | Bot information | `/about` |
-| `/cancel` | Cancel current operation | `/cancel` |
-
----
-
-## Sample Telegram Message Format
-
-### Analysis Report
-
-```
- *BTCUSD Analysis Report*
- *Time:* 05/09/2026 14:30 UTC
- *Timeframe:* 1H
-
- *Current Price:* $60,123.45
- *Signal:* HOLD (Score: 52/100)
-
-━━━━━━━━━━━━━━━━━━━━━
-
-*Technical Indicators*
-• RSI (14): 65.2
-• MACD: 0.0034
-• MA 50: $59,800
-• MA 200: $58,200
-• Support: $59,500
-• Resistance: $61,000
-
-*Market Sentiment*
-• News: Positive (+20)
-• Fear & Greed: 72 (Greed)
-• Social Volume: 456
-
-*Risk Management*
-• Stop Loss: $59,500
-• Take Profit: $61,500
-• Position Size: 2.5%
-
-━━━━━━━━━━━━━━━━━━━━━
-
-*Summary:*
-BTC is in a consolidation phase with mild bullish 
-bias. RSI shows overbought conditions but MACD 
-remains bullish. Wait for clearer signal before 
-entering.
-
-━━━━━━━━━━━━━━━━━━━━━
-
-[Refresh] [History] [Export] [Menu]
-```
-
----
-
-## Deployment Architecture (Telegram)
-
-```mermaid
-graph TB
-    subgraph "Internet"
-        TG_API[Telegram API]
-        U[Users]
-    end
-    
-    subgraph "Cloud Server"
-        subgraph "Webhook Server"
-            FLASK[Flask App<br/>Port 8443]
-            SSL[SSL Certificate]
-        end
-        
-        subgraph "Bot Worker"
-            BOT[python-telegram-bot<br/>Worker Process]
-            QUEUE[Task Queue<br/>Redis/RabbitMQ]
-        end
-        
-        subgraph "Services"
-            DB[(PostgreSQL)]
-            CACHE[(Redis)]
-            TSDB[(InfluxDB)]
-        end
-    end
-    
-    subgraph "External"
-        EX[Exchanges & APIs]
-    end
-    
-    U -->|HTTPS| TG_API
-    TG_API -->|Webhook POST| SSL
-    SSL --> FLASK
-    FLASK --> BOT
-    
-    BOT --> QUEUE
-    QUEUE --> DB
-    QUEUE --> CACHE
-    QUEUE --> TSDB
-    
-    BOT --> EX
-    
-    BOT -->|Response| FLASK
-    FLASK -->|Webhook Response| TG_API
-    TG_API -->|Message| U
-```
-
----
-
-## Railway Deployment
-
-This bot is configured for deployment on [Railway](https://railway.app).
+## Getting Started
 
 ### Prerequisites
-
-1. **Railway account** — sign up at https://railway.app
-2. **GitHub repository** — push your code to GitHub (already done)
-3. **Telegram Bot Token** — from @BotFather
-4. **PostgreSQL database** — provisioned via Railway's PostgreSQL service
-5. **Redis** — provisioned via Railway's Redis service (optional, falls back to in-memory)
-
-### One-Click Deploy
-
-1. Go to https://railway.app/new
-2. Select **Deploy from GitHub repository**
-3. Choose your repository (`Sultanrayan/pkay-ai-analysis`)
-4. Railway will detect `railway.json` and configure the service automatically
-
-### Manual Deployment via CLI
-
-```bash
-# Login to Railway (already done)
-railway login
-
-# Create a new project
-railway init --project-name trading-bot
-
-# Link your GitHub repo
-railway link
-
-# Add PostgreSQL service
-railway add postgresql
-
-# Add Redis service (optional) 
-railway add redis
-
-# Deploy
-railway up
-```
-
-### Environment Variables
-
-Configure these in Railway's dashboard (Variables tab):
-
-| Variable | Value | Required |
-|----------|-------|----------|
-| `TELEGRAM_BOT_TOKEN` | Your bot token from @BotFather | **Yes** |
-| `TELEGRAM_WEBHOOK_URL` | Railway URL + `/webhook` (e.g. `https://your-project.up.railway.app/webhook`) | **Yes** |
-| `DATABASE_URL` | PostgreSQL connection string (auto-set by Railway) | **Yes** |
-| `REDIS_URL` | Redis connection string (auto-set by Railway) | No |
-| `WEBHOOK_SECRET` | Random secret for signature verification | **Recommended** |
-| `WEBHOOK_HOST` | `0.0.0.0` | No (default) |
-| `WEBHOOK_PORT` | Leave empty (uses Railway's `PORT` env) | No (default) |
-| `LOG_LEVEL` | `INFO` or `DEBUG` | No (default: INFO) |
-
-### Generate Webhook Secret
-
-```bash
-python -c "import secrets; print(secrets.token_hex(32))"
-```
-
-Copy the output and set it as `WEBHOOK_SECRET` in Railway.
-
-### Register Webhook with Telegram
-
-After deployment, get your Railway URL from the dashboard, then run:
-
-```bash
-python scripts/set_webhook.py --url https://your-project.up.railway.app/webhook
-```
-
-Or with a secret:
-
-```bash
-python scripts/set_webhook.py --url https://your-project.up.railway.app/webhook --secret your_webhook_secret
-```
-
-### Verify Deployment
-
-1. Open your bot in Telegram
-2. Send `/start`
-3. Send `/analyze` and verify you receive an analysis report
-4. Check Railway logs for any errors
-
-### Troubleshooting
-
-- **Webhook not receiving updates**: Verify `TELEGRAM_WEBHOOK_URL` matches your Railway URL exactly
-- **Database connection errors**: Check `DATABASE_URL` is set correctly in Railway
-- **Signature verification failing**: Ensure `WEBHOOK_SECRET` matches what was registered with Telegram
-- **Bot not responding**: Check Railway logs for Python errors; ensure `TELEGRAM_BOT_TOKEN` is valid
-
----
-
-## Repository Layout
-
-```
-bot.py                       # Dev entry point (long polling)
-webhook_server.py            # Production entry point (webhook)
-railway.json                 # Railway deployment configuration
-docker-compose.yml           # PostgreSQL 16 + Redis 7 for local development
-scripts/                     # init_db.py, set_webhook.py, load_test.py
-
-tradingbot/
-├── config.py                # Settings from .env (single configuration object)
-├── domain.py                # Shared models: Symbol, Timeframe, Candle, Signal
-├── indicators.py            # Dependency-free indicator math (RSI, MACD, ATR, ...)
-├── services.py              # Composition root (wires data/storage/cache/limiter)
-├── application.py           # Shared Telegram Application assembly
-├── charts.py                # Pillow candlestick chart renderer
-├── exporter.py              # CSV export of analysis history
-├── webhook_security.py      # Telegram webhook signature verification
-├── data/                    # Market data: Binance/Yahoo providers + demo fallback,
-│                            #   RSS/Fear&Greed sentiment, Redis/Null cache
-├── agents/                  # Technical, Sentiment, Risk, Correlation + Decision engine
-├── analysis/                # Analysis runner orchestrating the agents into a report
-├── storage/                 # Postgres (asyncpg) + in-memory repositories, schema.sql,
-│                            #   daily rate limiter (Redis or in-memory)
-└── telegram/                # i18n (EN/KH), keyboards, HTML formatters, callback
-                             #   data conventions, command/flow handlers
-
-tests/                       # Pytest suite (run with: python -m pytest tests/)
-```
-
-Each layer talks to the next through small protocols/interfaces, so new
-providers, agents, symbols or storage backends can be added without touching
-callers. Agents are pure functions of their inputs and every indicator has
-unit coverage.
-
-## Getting Started (Telegram Bot)
-
-### Prerequisites
-- Python 3.9+
-- PostgreSQL 13+
-- Redis 6+
+- Python 3.10+
+- PostgreSQL 13+ (optional at runtime — in-memory fallback)
+- Redis 6+ (optional at runtime — in-memory fallback)
 - Telegram Bot Token (from @BotFather)
+- DeepSeek API Key (optional — enables AI-enriched signals)
 
 ### Quick Start
 
@@ -704,7 +421,7 @@ docker compose up -d
 
 # Configure environment variables
 cp .env.example .env
-# Edit .env with your Telegram Bot Token and API keys
+# Edit .env with your Telegram Bot Token (and optionally DEEPSEEK_API_KEY)
 
 # Initialize database (idempotent; can be re-run safely)
 python scripts/init_db.py
@@ -725,9 +442,10 @@ python scripts/set_webhook.py --url https://your-domain.com/webhook
 > sentiment, clearly flagged in the reports. When the live free APIs
 > (Binance public, Yahoo Finance, RSS news, Fear & Greed index) are
 > reachable they are used automatically; any failure falls back to demo
-> data so a chat stays usable. PostgreSQL/Redis are optional at runtime —
-> the bot degrades to in-memory storage and rate limiting when they are
-> unreachable.
+> data so a chat stays usable. On-chain, macro and sniper data are served
+> by clearly-flagged heuristic sources unless live provider keys are wired.
+> PostgreSQL/Redis are optional at runtime — the bot degrades to in-memory
+> storage and rate limiting when they are unreachable.
 
 ### Environment Variables (.env)
 
@@ -743,16 +461,22 @@ WEBHOOK_SECRET=your_secret_here
 DATABASE_URL=postgresql://user:password@localhost/trading_bot
 REDIS_URL=redis://localhost:6379/0
 
-# APIs
-BINANCE_API_KEY=your_binance_api_key
-BINANCE_API_SECRET=your_binance_api_secret
-NEWS_API_KEY=your_news_api_key
-
 # Bot Settings
-DEFAULT_SYMBOL=BTCUSD
+DEFAULT_SYMBOL=BTCUSDT
 DEFAULT_TIMEFRAME=1h
 MAX_DAILY_REQUESTS=10
 LOG_LEVEL=INFO
+
+# DeepSeek-V4-Flash (optional AI enrichment; deterministic fallback built-in)
+DEEPSEEK_API_KEY=
+DEEPSEEK_MODEL=deepseek-v4-flash
+DEEPSEEK_BASE_URL=https://api.deepseek.com
+DEEPSEEK_TIMEOUT_SECONDS=20
+
+# Signal-only memecoin sniper (never executes orders)
+SNIPER_ENABLED=true
+SNIPER_MIN_LIQUIDITY=500000
+SNIPER_MAX_OPPORTUNITIES=3
 
 # Chart Generation
 CHART_ENABLED=true
@@ -765,75 +489,42 @@ DEMO_FALLBACK=true
 
 ---
 
-## Monitoring & Analytics (Telegram Bot)
+## Repository Layout
 
-```mermaid
-graph LR
-    subgraph "Metrics Collection"
-        M1[User Count]
-        M2[Daily Active Users]
-        M3[Analysis Requests]
-        M4[Average Response Time]
-        M5[Signal Distribution]
-    end
-    
-    subgraph "Storage"
-        TSDB[InfluxDB]
-    end
-    
-    subgraph "Visualization"
-        GRAFANA[Grafana Dashboard]
-    end
-    
-    subgraph "Alerts"
-        ALERT[Alert Manager]
-        TG_ALERT[Telegram Alert]
-    end
-    
-    M1 --> TSDB
-    M2 --> TSDB
-    M3 --> TSDB
-    M4 --> TSDB
-    M5 --> TSDB
-    
-    TSDB --> GRAFANA
-    TSDB --> ALERT
-    ALERT --> TG_ALERT
+```
+bot.py                       # Dev entry point (long polling)
+webhook_server.py            # Production entry point (webhook)
+docker-compose.yml           # PostgreSQL 16 + Redis 7 for local development
+scripts/                     # init_db.py, set_webhook.py, load_test.py
+research/research_v3.md      # V3 specification / roadmap
+
+tradingbot/
+├── config.py                # Settings from .env (single configuration object)
+├── domain.py                # Shared models: Symbol, Timeframe, Candle, snapshots
+├── indicators.py            # Dependency-free indicator math (RSI, MACD, ATR, ...)
+├── services.py              # Composition root (wires data/storage/cache/limiter/llm)
+├── application.py           # Shared Telegram Application assembly
+├── llm.py                   # DeepSeek-V4-Flash client (graceful fallback)
+├── charts.py                # Pillow candlestick chart renderer
+├── exporter.py              # CSV export of analysis history
+├── webhook_security.py      # Telegram webhook signature verification
+├── data/                    # Market data: Binance/Yahoo providers + demo fallback,
+│   │                        #   RSS/Fear&Greed sentiment, simulated on-chain/macro/
+│   │                        #   sniper sources, Redis/Null cache
+├── agents/                  # 10 agents + decision engine (see agents/__init__.py)
+├── analysis/                # Runner orchestrating the agents into a report
+├── storage/                 # Postgres (asyncpg) + in-memory repositories, schema.sql,
+│   │                        #   daily rate limiter (Redis or in-memory)
+└── telegram/                # i18n (EN/KH), keyboards, HTML formatters, callback
+                             #   data conventions, command/flow handlers
+
+tests/                       # Pytest suite (run with: python -m pytest tests/)
 ```
 
----
-
-## Security Features (Telegram Bot)
-
-```mermaid
-graph TD
-    SEC[Security Layer]
-    
-    SEC --> A1[Webhook Validation<br/>Verify Telegram Signature]
-    SEC --> A2[Rate Limiting<br/>10 requests/day/user]
-    SEC --> A3[Input Validation<br/>Sanitize All Inputs]
-    SEC --> A4[User Authentication<br/>Telegram User ID Check]
-    SEC --> A5[Data Encryption<br/>API Keys Encrypted]
-    SEC --> A6[Audit Logging<br/>All Actions Logged]
-    SEC --> A7[Error Handling<br/>No Sensitive Data Leak]
-    SEC --> A8[HTTPS Only<br/>SSL/TLS Required]
-    SEC --> A9[Webhook Secret<br/>HMAC Signature Verification]
-```
-
----
-
-## Performance Metrics
-
-| Metric | Value |
-|--------|-------|
-| **Average Analysis Time** | 1.8 seconds |
-| **Concurrent Users Supported** | 1000+ |
-| **Database Query Time** | <50ms |
-| **Cache Hit Rate** | 85% |
-| **API Response Time** | <100ms |
-| **Telegram Webhook Latency** | <200ms |
-| **System Uptime** | 99.9% |
-| **Daily Request Capacity** | 10,000+ |
+Each layer talks to the next through small protocols/interfaces, so new
+providers, agents, symbols or storage backends can be added without touching
+callers. Agents are pure functions of their inputs and every indicator has
+unit coverage.
 
 ---
 
@@ -841,16 +532,13 @@ graph TD
 
 ```bash
 # Run unit tests
-pytest tests/
+python -m pytest tests/
 
 # Run integration tests
-pytest tests/integration/
+python -m pytest tests/integration/
 
-# Test specific bot commands
-python tests/test_bot_commands.py
-
-# Load testing
-python scripts/load_test.py --users 100 --requests 1000
+# Lint
+ruff check .
 ```
 
 ---
@@ -878,8 +566,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE.md) f
 ## Acknowledgements
 
 - [python-telegram-bot](https://github.com/python-telegram-bot/python-telegram-bot) - Telegram Bot API wrapper
-- [CCXT](https://github.com/ccxt/ccxt) - Cryptocurrency exchange trading library
-- [TA-Lib](https://github.com/TA-Lib/ta-lib-python) - Technical analysis library
-- [Pandas](https://pandas.pydata.org/) - Data manipulation library
-
----
+- [DeepSeek](https://platform.deepseek.com) - DeepSeek-V4-Flash LLM enrichment
+- [httpx](https://www.python-httpx.org/) - Async HTTP client
+- [Pillow](https://python-pillow.org/) - Chart image generation
