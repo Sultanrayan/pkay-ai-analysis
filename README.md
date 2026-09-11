@@ -1,11 +1,18 @@
-# Trading Analysis Bot V3 — Multi-Asset AI (Telegram Bot)
+![Pkay AI](img-repo.jpg)
+
+# Pkay AI — Multi-Asset AI Trading Analysis (Telegram Bot)
+
+[![Python](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](#mit-license)
+[![Tests](https://img.shields.io/badge/tests-pytest-informational.svg)](#testing)
 
 ## Overview
 
-A **Telegram-based multi-asset trading analysis bot** that delivers on-demand,
-multi-agent analysis for **BTCUSDT, ETHUSDT, SOLUSDT** and **XAUUSD**, plus a
-**signal-only memecoin sniper** scan. Users interact directly with a Telegram
-bot — type a command or tap a button to get a comprehensive trading report.
+**Pkay AI** is a **Telegram-based multi-asset trading analysis bot** that delivers
+on-demand, multi-agent analysis for **BTCUSDT, ETHUSDT, SOLUSDT** and **XAUUSD**,
+plus a **signal-only memecoin sniper** scan. Users interact directly with a
+Telegram bot — type a command or tap a button to get a comprehensive trading
+report.
 
 The bot uses **10 specialized AI agents** grouped into teams — technical,
 market intelligence and risk — whose consensus drives the signal, with
@@ -45,85 +52,22 @@ live).
 
 ### High-Level Architecture
 
-```mermaid
-graph TB
-    subgraph "User Layer"
-        U[User]
-        TG[Telegram App]
-    end
+Pkay AI is organized into six layers. Each layer only talks to the next
+through small protocols, so providers, agents and storage backends can be
+swapped without touching callers.
 
-    subgraph "Telegram Layer"
-        WEBHOOK[Telegram Webhook]
-        BOT[Bot Handler]
-        CMD[Command Parser]
-        CALLBACK[Callback Query Handler]
-    end
+| Layer | Components | Responsibility |
+|-------|------------|----------------|
+| **User** | Telegram App | Where the user sends commands and taps buttons |
+| **Telegram** | Webhook / Bot Handler · Command Parser · Callback Handler | Receives updates, routes commands and inline callbacks |
+| **Processing** | Data Manager · Analysis Runner · DeepSeek-V4-Flash · Formatter | Fetches data, orchestrates agents, formats the report |
+| **Agent** | Technical Team · Market Intel Team · Risk · Sniper · Decision Engine | Produces scores and the weighted consensus signal |
+| **Data** | Binance/Yahoo · News/Fear&Greed · Simulated sources · PostgreSQL · Redis | Live and fallback data, persistence and caching |
+| **Response** | Formatted Message · Inline Keyboard · Chart Image | Delivers the final report back to Telegram |
 
-    subgraph "Processing Layer"
-        DM[Data Manager]
-        ORCH[Analysis Runner]
-        LLM[DeepSeek-V4-Flash]
-        FORM[Message Formatter]
-    end
-
-    subgraph "Agent Layer"
-        TA[Technical Team<br/>technical · volume · volatility · pattern]
-        MI[Market Intel Team<br/>sentiment · on-chain · macro · correlation]
-        RM[Risk Agent]
-        SN[Sniper Agent<br/>signal-only]
-        DE[Decision Engine]
-    end
-
-    subgraph "Data Layer"
-        PF[Binance / Yahoo Price Feed]
-        NF[News / Fear&Greed]
-        SIM[Simulated Sources<br/>on-chain · macro · sniper]
-        DB[(PostgreSQL)]
-        CACHE[(Redis Cache)]
-    end
-
-    subgraph "Response Layer"
-        MSG[Formatted Message]
-        KEYBOARD[Inline Keyboard]
-        IMG[Chart Image]
-    end
-
-    U -->|"/analyze"| TG
-    TG --> WEBHOOK
-    WEBHOOK --> BOT
-    BOT --> CMD
-    BOT --> CALLBACK
-
-    CMD --> ORCH
-    CALLBACK --> ORCH
-    ORCH --> DM
-
-    DM -->|Candles| PF
-    DM -->|Sentiment| NF
-    DM -->|Heuristics| SIM
-    DM --> DB
-    DM --> CACHE
-
-    DM --> TA
-    DM --> MI
-    DM --> RM
-    DM --> SN
-
-    TA --> DE
-    MI --> DE
-    RM --> DE
-    DE --> LLM
-    LLM --> FORM
-    DE --> FORM
-    FORM --> MSG
-    FORM --> KEYBOARD
-    FORM --> IMG
-
-    MSG --> TG
-    KEYBOARD --> TG
-    IMG --> TG
-    TG --> U
-```
+**Request path:** `User → Telegram → Webhook → Bot Handler → Command/Callback →`
+`Analysis Runner → Data Manager → Agents → Decision Engine → (optional LLM) →`
+`Formatter → Message/Keyboard/Chart → Telegram → User`.
 
 ### Multi-Agent System
 
@@ -142,81 +86,36 @@ reported separately: opportunities and their safety profile, with a clear
 
 ### Agent Signal Generation Flow
 
-```mermaid
-sequenceDiagram
-    participant U as User
-    participant O as Orchestrator (Runner)
-    participant T as Technical Team (4 agents)
-    participant M as Market Intel (4 agents)
-    participant R as Risk Agent
-    participant S as Sniper Agent
-    participant D as Decision Engine
-    participant L as DeepSeek-V4-Flash (optional)
-
-    U->>O: /analyze ETHUSDT 1h
-    O->>O: Fetch candles, sentiment, on-chain, macro, sniper scan
-
-    par Agent Execution
-        O->>T: Analyze technicals (4 agents)
-        T-->>O: Scores + reasoning
-        O->>M: Gather market intel (4 agents)
-        M-->>O: Scores + reasoning
-        O->>R: Risk assessment
-        R-->>O: SL/TP + position size
-        O->>S: Memecoin scan (signal-only)
-        S-->>O: Opportunity + safety scores
-    end
-
-    O->>D: Weighted consensus
-    D-->>O: Signal + confidence + summary
-    O->>L: Enrich final call (if configured)
-    L-->>O: AI signal/summary or None (fallback)
-    O-->>U: Complete report
-```
+1. User sends `/analyze ETHUSDT 1h`.
+2. The orchestrator fetches candles, sentiment, on-chain, macro and a sniper
+   scan.
+3. Agent teams run in parallel:
+   - Technical team (4 agents) → scores + reasoning
+   - Market intel team (4 agents) → scores + reasoning
+   - Risk agent → SL/TP + position size
+   - Sniper agent → opportunity + safety scores
+4. The Decision Engine computes the weighted consensus → signal, confidence
+   and summary.
+5. DeepSeek-V4-Flash optionally enriches the final call (or `None` on any
+   error, falling back to the deterministic result).
+6. A complete report is returned to the user.
 
 ---
 
 ## Telegram Bot Flow
 
-```mermaid
-flowchart TD
-    START([User Opens Telegram]) --> START_CMD[Sends /start]
-    START_CMD --> WELCOME[Welcome Message + Main Menu]
-
-    WELCOME --> MENU{User Action}
-
-    MENU -->|"Analyze"| SELECT[Select Asset]
-    MENU -->|"Sniper"| SNIPER[Memecoin Scan]
-    MENU -->|"History"| HISTORY[Show Past Analysis]
-    MENU -->|"Settings"| SETTINGS[User Preferences]
-    MENU -->|"Help"| HELP[Help Guide]
-
-    SELECT --> SELECT_ASSET{Choose Asset}
-    SELECT_ASSET -->|BTCUSDT| TIMEFRAME
-    SELECT_ASSET -->|ETHUSDT| TIMEFRAME
-    SELECT_ASSET -->|SOLUSDT| TIMEFRAME
-    SELECT_ASSET -->|XAUUSD| TIMEFRAME
-    SELECT_ASSET -->|All| TIMEFRAME
-    SELECT_ASSET -->|Memecoin| SNIPER
-
-    TIMEFRAME -->|1H / 4H / 1D / 1W| ANALYZE[Run Analysis]
-    ANALYZE --> FETCH[Fetch Data]
-    FETCH --> PROCESS[Run 10 Agents]
-    PROCESS --> DECIDE[Decision Engine + LLM]
-    DECIDE --> GEN_REPORT[Generate Report]
-
-    GEN_REPORT --> DISPLAY[Display Formatted Report]
-    DISPLAY --> BUTTONS[Action Buttons]
-    BUTTONS --> ACTION{User Action}
-    ACTION -->|"Refresh"| ANALYZE
-    ACTION -->|"Export"| EXPORT[Send CSV]
-    ACTION -->|"Sniper"| SNIPER
-    ACTION -->|"History"| HISTORY
-    ACTION -->|"Main Menu"| WELCOME
-
-    HISTORY --> SHOW_HIST[Show Last 10 Analyses]
-    SNIPER --> SNIPER_REPORT[Opportunities + Safety]
-```
+1. **User opens Telegram** and sends `/start`.
+2. Bot replies with the **welcome message + main menu**.
+3. From the menu the user can choose **Analyze**, **Sniper**, **History**,
+   **Settings** or **Help**.
+4. **Analyze** → choose asset (BTCUSDT / ETHUSDT / SOLUSDT / XAUUSD / All /
+   Memecoin) → choose timeframe (1H / 4H / 1D / 1W) → analysis runs.
+5. The bot fetches data, runs the 10 agents, applies the Decision Engine
+   (+ optional LLM) and generates the report.
+6. The formatted report is displayed with action buttons:
+   **Refresh**, **Export**, **Sniper**, **History**, **Main Menu**.
+7. **History** shows the last 10 analyses; **Sniper** shows opportunities and
+   their safety profile.
 
 ---
 
@@ -320,119 +219,136 @@ r=-0.12 (+12.0/100 contribution). Signal is BUY with total score +58.0/100.
 
 ## Database Schema
 
-```mermaid
-erDiagram
-    TELEGRAM_USERS ||--o{ ANALYSIS_HISTORY : performs
-    TELEGRAM_USERS ||--|| USER_PREFERENCES : has
-
-    TELEGRAM_USERS {
-        bigint user_id PK
-        string username
-        string language_code "kh/en"
-        int daily_requests
-        date last_request_date
-        int max_daily_requests "default: 10"
-        boolean is_premium
-        datetime created_at
-        datetime last_active
-    }
-
-    ANALYSIS_HISTORY {
-        int id PK
-        bigint user_id FK
-        string symbol
-        string timeframe
-        datetime timestamp
-        decimal current_price
-        int technical_score
-        int volume_score
-        int volatility_score
-        int pattern_score
-        int sentiment_score
-        int onchain_score
-        int macro_score
-        int risk_score
-        int correlation_score
-        int sniper_score
-        int total_score
-        decimal confidence
-        string signal
-        decimal rsi
-        decimal ma_50
-        decimal ma_200
-        decimal support
-        decimal resistance
-        decimal stop_loss
-        decimal take_profit
-        decimal position_size_pct
-        decimal atr
-        text summary
-        string chart_url
-        int response_time_ms
-        bigint message_id
-        boolean llm_enhanced
-        jsonb agent_contributions
-    }
-
-    USER_PREFERENCES {
-        bigint user_id PK
-        string default_symbol "BTCUSDT"
-        string default_timeframe "1h"
-        boolean show_chart "true"
-        boolean show_indicators "true"
-        boolean show_risk "true"
-        boolean show_sentiment "true"
-        string notification_enabled "daily"
-        datetime updated_at
-    }
-```
-
 The schema lives in `tradingbot/storage/schema.sql`. Existing databases are
 migrated automatically at startup with idempotent `ADD COLUMN IF NOT EXISTS`
 statements, so upgrading from v2 keeps your history.
 
+**`TELEGRAM_USERS`** — one row per user (PK `user_id`):
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `user_id` | bigint | primary key |
+| `username` | string | |
+| `language_code` | string | `kh` / `en` |
+| `daily_requests` | int | |
+| `last_request_date` | date | |
+| `max_daily_requests` | int | default `10` |
+| `is_premium` | boolean | |
+| `created_at` | datetime | |
+| `last_active` | datetime | |
+
+**`ANALYSIS_HISTORY`** — many rows per user (PK `id`, FK `user_id`):
+
+| Column | Type |
+|--------|------|
+| `id` | int (PK) |
+| `user_id` | bigint (FK) |
+| `symbol`, `timeframe`, `signal` | string |
+| `timestamp` | datetime |
+| `current_price` | decimal |
+| `technical_score`, `volume_score`, `volatility_score`, `pattern_score` | int |
+| `sentiment_score`, `onchain_score`, `macro_score`, `risk_score` | int |
+| `correlation_score`, `sniper_score`, `total_score` | int |
+| `confidence` | decimal |
+| `rsi`, `ma_50`, `ma_200`, `support`, `resistance` | decimal |
+| `stop_loss`, `take_profit`, `position_size_pct`, `atr` | decimal |
+| `summary` | text |
+| `chart_url` | string |
+| `response_time_ms` | int |
+| `message_id` | bigint |
+| `llm_enhanced` | boolean |
+| `agent_contributions` | jsonb |
+
+**`USER_PREFERENCES`** — one row per user (PK `user_id`):
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `user_id` | bigint | primary key |
+| `default_symbol` | string | default `BTCUSDT` |
+| `default_timeframe` | string | default `1h` |
+| `show_chart`, `show_indicators`, `show_risk`, `show_sentiment` | boolean | |
+| `notification_enabled` | string | default `daily` |
+| `updated_at` | datetime | |
+
 ---
 
-## Getting Started
+## Install Guide
 
 ### Prerequisites
-- Python 3.10+
-- PostgreSQL 13+ (optional at runtime — in-memory fallback)
-- Redis 6+ (optional at runtime — in-memory fallback)
-- Telegram Bot Token (from @BotFather)
-- DeepSeek API Key (optional — enables AI-enriched signals)
 
-### Quick Start
+- **Python 3.10+**
+- **PostgreSQL 13+** (optional at runtime — in-memory fallback)
+- **Redis 6+** (optional at runtime — in-memory fallback)
+- **Telegram Bot Token** from [@BotFather](https://t.me/BotFather)
+- **DeepSeek API Key** (optional — enables AI-enriched signals)
+
+### Step 1 — Clone the repository
 
 ```bash
-# Clone the repository
 git clone https://github.com/Sultanrayan/pkay-ai-analysis.git
 cd pkay-ai-analysis
+```
 
-# Create virtual environment
+### Step 2 — Create a virtual environment
+
+```bash
 python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
 
-# Install dependencies
+# Linux / macOS
+source venv/bin/activate
+
+# Windows (PowerShell)
+venv\Scripts\Activate.ps1
+```
+
+### Step 3 — Install dependencies
+
+```bash
 pip install -r requirements.txt
+```
 
-# Start PostgreSQL and Redis (production stack)
+### Step 4 — Start the data stack (production)
+
+```bash
 docker compose up -d
+```
 
-# Configure environment variables
+This brings up PostgreSQL 16 and Redis 7. Both are optional — skip this step
+and the bot degrades to in-memory storage and rate limiting.
+
+### Step 5 — Configure environment variables
+
+```bash
 cp .env.example .env
-# Edit .env with your Telegram Bot Token (and optionally DEEPSEEK_API_KEY)
+```
 
-# Initialize database (idempotent; can be re-run safely)
+Edit `.env` and set at least your `TELEGRAM_BOT_TOKEN`. Add
+`DEEPSEEK_API_KEY` to enable AI-enriched signals. See
+[Environment Variables](#environment-variables-env) for the full list.
+
+### Step 6 — Initialize the database
+
+```bash
 python scripts/init_db.py
+```
 
-# Run bot (development with polling)
+This is idempotent and safe to re-run.
+
+### Step 7 — Run the bot
+
+```bash
+# Development (long polling)
 python bot.py
 
-# Run with webhook (production)
+# Production (webhook)
 python webhook_server.py
+```
 
-# Register the webhook with Telegram (after deploying behind HTTPS)
+### Step 8 — Register the webhook (production only)
+
+After deploying behind HTTPS:
+
+```bash
 python scripts/set_webhook.py --url https://your-domain.com/webhook
 ```
 
@@ -549,9 +465,34 @@ We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) f
 
 ---
 
-## License
+## MIT License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE.md) file for details.
+This project is licensed under the **MIT License** — see the
+[LICENSE](LICENSE.md) file for the full text.
+
+```
+MIT License
+
+Copyright (c) 2026 Pkay AI
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
 
 ---
 
@@ -568,4 +509,4 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE.md) f
 - [python-telegram-bot](https://github.com/python-telegram-bot/python-telegram-bot) - Telegram Bot API wrapper
 - [DeepSeek](https://platform.deepseek.com) - DeepSeek-V4-Flash LLM enrichment
 - [httpx](https://www.python-httpx.org/) - Async HTTP client
-- [Pillow](https://python-pillow.org/) - Chart image generation
+- [Pillow](https://python-pillow.org/) - Chart image generation
