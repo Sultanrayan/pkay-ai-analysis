@@ -1,0 +1,11 @@
+# Nixpacks configuration for Railway deployment
+# https://nixpacks.com/docs/configuration/
+
+[phases.setup]
+nixpacksVersion = "0.10.0"
+
+[phases.build]
+# No custom build steps needed - pip install handles dependencies
+
+[phases.deploy]
+startCommand = "python webhook_server.py"
