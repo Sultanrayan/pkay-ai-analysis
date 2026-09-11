@@ -15,14 +15,14 @@ Railway deployment:
 
 from __future__ import annotations
 
-import sys
 import os
+import sys
 
 from telegram import Update
 
 from tradingbot.application import build_application
 from tradingbot.config import Settings, setup_logging
-from tradingbot.webhook_security import verify_telegram_signature, get_webhook_secret
+from tradingbot.webhook_security import get_webhook_secret
 
 URL_PATH = "/webhook"
 
@@ -66,23 +66,6 @@ def main() -> None:
         f"Bot started in webhook mode: {settings.telegram_webhook_url} "
         f"listening on {settings.webhook_host}:{settings.webhook_port}{URL_PATH}"
     )
-
-    # Wrap the webhook handler with signature verification
-    async def secured_webhook_handler(request, update, context):
-        """Verify Telegram signature before processing the update."""
-        if not verify_telegram_signature(
-            request.headers,
-            request.content.read(),
-            settings.telegram_bot_token,
-            webhook_secret,
-        ):
-            logging.getLogger(__name__).warning(
-                "Invalid Telegram webhook signature — request rejected"
-            )
-            return
-        # Re-read content for the update dispatcher
-        request._content = request.content._buffer
-        return await application.process_update(update, context)
 
     application.run_webhook(
         listen=settings.webhook_host,

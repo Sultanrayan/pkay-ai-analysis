@@ -28,7 +28,7 @@ from tradingbot.domain import Symbol, Timeframe
 from tradingbot.storage.ratelimit import MemoryRateLimiter
 from tradingbot.storage.repository import InMemoryStorage
 
-SYMBOLS = [Symbol.BTCUSD, Symbol.XAUUSD]
+SYMBOLS = [Symbol.BTCUSDT, Symbol.ETHUSDT, Symbol.SOLUSDT, Symbol.XAUUSD]
 TIMEFRAMES = [Timeframe.H1, Timeframe.H4, Timeframe.D1]
 
 
@@ -36,7 +36,7 @@ async def run_load(users: int, requests: int) -> None:
     settings = Settings(use_demo_data=True, chart_enabled=False)
     client = httpx.AsyncClient()
     data = MarketDataManager(client, settings)
-    runner = AnalysisRunner(data)
+    runner = AnalysisRunner(data, settings)
     storage = InMemoryStorage()
     await storage.connect()
     limiter = MemoryRateLimiter()

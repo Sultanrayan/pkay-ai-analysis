@@ -7,16 +7,21 @@ from tradingbot.domain import Symbol, Timeframe
 
 
 def test_symbol_parse_variants():
-    assert Symbol.parse("btcusd") == Symbol.BTCUSD
-    assert Symbol.parse("BTC/USD") == Symbol.BTCUSD
-    assert Symbol.parse("BTCUSDT") == Symbol.BTCUSD  # exchange alias
+    assert Symbol.parse("btcusd") == Symbol.BTCUSDT  # legacy alias
+    assert Symbol.parse("BTC/USD") == Symbol.BTCUSDT
+    assert Symbol.parse("BTCUSDT") == Symbol.BTCUSDT
+    assert Symbol.parse("BTC-USD") == Symbol.BTCUSDT
+    assert Symbol.parse("ethusdt") == Symbol.ETHUSDT
+    assert Symbol.parse("sol-usdt") == Symbol.SOLUSDT
     assert Symbol.parse("xauusd") == Symbol.XAUUSD
-    assert Symbol.parse("ETHUSD") is None
+    assert Symbol.parse("ETHUSD") is None  # no such market
 
 
-def test_symbol_counterparts():
-    assert Symbol.BTCUSD.counterpart() == Symbol.XAUUSD
-    assert Symbol.XAUUSD.counterpart() == Symbol.BTCUSD
+def test_symbol_correlation_peers():
+    assert Symbol.BTCUSDT.correlation_peer() == Symbol.XAUUSD
+    assert Symbol.XAUUSD.correlation_peer() == Symbol.BTCUSDT
+    assert Symbol.ETHUSDT.correlation_peer() == Symbol.SOLUSDT
+    assert Symbol.SOLUSDT.correlation_peer() == Symbol.ETHUSDT
 
 
 def test_timeframe_parse_and_minutes():
@@ -29,12 +34,16 @@ def test_timeframe_parse_and_minutes():
 
 def test_settings_defaults():
     settings = Settings()
-    assert settings.default_symbol == Symbol.BTCUSD
+    assert settings.default_symbol == Symbol.BTCUSDT
     assert settings.default_timeframe == Timeframe.H1
     assert settings.max_daily_requests == 10
     assert settings.chart_enabled is True
     assert settings.demo_fallback is True
     assert settings.use_demo_data is False
+    assert settings.deepseek_model == "deepseek-v4-flash"
+    assert settings.deepseek_api_key == ""
+    assert settings.sniper_enabled is True
+    assert settings.sniper_min_liquidity == 500_000.0
 
 
 def test_settings_from_env_respects_overrides(monkeypatch, tmp_path):
@@ -60,6 +69,6 @@ def test_settings_from_env_ignores_garbage_values(monkeypatch, tmp_path):
         encoding="utf-8",
     )
     settings = Settings.from_env(str(env_file), override=True)
-    assert settings.default_symbol == Symbol.BTCUSD  # falls back safely
+    assert settings.default_symbol == Symbol.BTCUSDT  # falls back safely
     assert settings.max_daily_requests == 10
     assert settings.log_level == "DEBUG"

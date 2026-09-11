@@ -2,6 +2,7 @@
 
 * :mod:`.commands`   — /start, /help, /about, /cancel and text fallbacks
 * :mod:`.analyze`    — /analyze plus the asset/timeframe/run/report flow
+* :mod:`.sniper`     — /sniper signal-only memecoin scan
 * :mod:`.navigation` — menu, history, settings, language and toggles
 
 :func:`register_handlers` wires every handler onto the :class:`Application`;
@@ -26,7 +27,7 @@ from telegram.ext import (
 from .. import callback_data as cb
 from ..i18n import I18n
 from ..support import answer_callback, ensure_user, send_or_edit
-from . import analyze, commands, navigation
+from . import analyze, commands, navigation, sniper
 
 logger = logging.getLogger(__name__)
 
@@ -64,6 +65,7 @@ def register_handlers(app: Application) -> None:
     app.add_handler(CommandHandler("about", commands.cmd_about))
     app.add_handler(CommandHandler("cancel", commands.cmd_cancel))
     app.add_handler(CommandHandler("analyze", analyze.cmd_analyze))
+    app.add_handler(CommandHandler("sniper", sniper.cmd_sniper))
     app.add_handler(CallbackQueryHandler(_on_callback_query))
 
     def register(name: str, handler) -> None:
@@ -77,6 +79,7 @@ def register_handlers(app: Application) -> None:
     register(cb.PREFIX_TIMEFRAME, analyze.on_timeframe)
     register(cb.PREFIX_RUN, analyze.on_run)
     register(cb.PREFIX_REPORT, analyze.on_report_action)
+    register(cb.PREFIX_SNIPER, sniper.on_sniper)
     register(cb.PREFIX_LANG, navigation.on_language)
     register(cb.PREFIX_TOGGLE, navigation.on_toggle)
 

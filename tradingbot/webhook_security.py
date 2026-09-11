@@ -17,7 +17,6 @@ Alternatively, pass the secret via the WEBHOOK_SECRET environment variable.
 from __future__ import annotations
 
 import hmac
-import hashlib
 import logging
 import os
 from typing import Any

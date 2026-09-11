@@ -37,7 +37,7 @@ class TelegramUser:
 @dataclass(slots=True)
 class UserPreferences:
     user_id: int
-    default_symbol: Symbol = Symbol.BTCUSD
+    default_symbol: Symbol = Symbol.BTCUSDT
     default_timeframe: Timeframe = Timeframe.H1
     show_chart: bool = True
     show_indicators: bool = True
@@ -58,10 +58,17 @@ class HistoryRow:
     timestamp: datetime | None = None
     current_price: float | None = None
     technical_score: int | None = None
+    volume_score: int | None = None
+    volatility_score: int | None = None
+    pattern_score: int | None = None
     sentiment_score: int | None = None
+    onchain_score: int | None = None
+    macro_score: int | None = None
     risk_score: int | None = None
     correlation_score: int | None = None
+    sniper_score: int | None = None
     total_score: int | None = None
+    confidence: float | None = None
     signal: str | None = None
     rsi: float | None = None
     macd: float | None = None
@@ -77,6 +84,8 @@ class HistoryRow:
     chart_url: str | None = None
     response_time_ms: int | None = None
     message_id: int | None = None
+    llm_enhanced: bool = False
+    agent_contributions: dict | None = None
 
 
 def history_row_from_report(report: AnalysisReport, user_id: int) -> HistoryRow:
@@ -89,11 +98,18 @@ def history_row_from_report(report: AnalysisReport, user_id: int) -> HistoryRow:
         timestamp=report.created_at,
         current_price=report.current_price,
         technical_score=round(report.technical.score),
+        volume_score=round(report.volume.score),
+        volatility_score=round(report.volatility.score),
+        pattern_score=round(report.pattern.score),
         sentiment_score=round(report.sentiment.score),
+        onchain_score=round(report.onchain.score),
+        macro_score=round(report.macro.score),
         risk_score=round(report.risk.score),
         correlation_score=round(report.correlation.score),
+        sniper_score=round(report.sniper.opportunity_score),
         total_score=round(report.decision.total_score),
-        signal=report.decision.signal,
+        confidence=report.final_confidence,
+        signal=report.final_signal,
         rsi=report.technical.rsi,
         macd=report.technical.macd,
         ma_50=report.technical.ma_50,
@@ -104,6 +120,8 @@ def history_row_from_report(report: AnalysisReport, user_id: int) -> HistoryRow:
         take_profit=report.risk.take_profit,
         position_size_pct=report.risk.position_size_pct,
         atr=report.risk.atr,
-        summary=report.decision.summary,
+        summary=report.final_summary,
         response_time_ms=report.response_time_ms,
+        llm_enhanced=report.llm is not None,
+        agent_contributions=report.decision.contributions,
     )

@@ -19,8 +19,10 @@ from ..support import answer_callback, ensure_user, get_services, send_or_edit
 
 logger = logging.getLogger(__name__)
 
-#: Special token representing "run both assets" in callback payloads.
-BOTH = "BOTH"
+#: Special token representing "run all assets" in callback payloads.
+ALL = "ALL"
+#: Special token in the asset picker that jumps straight to the sniper scan.
+MEMECOIN = "MEMECOIN"
 
 LAST_REQUEST_KEY = "last_request"  # user_data -> {symbol, timeframe, row_id}
 
@@ -47,8 +49,8 @@ async def cmd_analyze(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     timeframe: Timeframe | None = None
     for token in context.args or []:
         lowered = token.lower()
-        if lowered == "both":
-            symbols = [Symbol.BTCUSD, Symbol.XAUUSD]
+        if lowered in ("both", "all"):
+            symbols = list(Symbol)
         elif timeframe is None and Timeframe.parse(token):
             timeframe = Timeframe.parse(token)
         elif symbols is None and (parsed := Symbol.parse(token)):
@@ -70,14 +72,20 @@ async def cmd_analyze(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
 # --------------------------------------------------------------------------
 
 async def on_asset(update: Update, context: ContextTypes.DEFAULT_TYPE, parts: tuple[str, ...]) -> None:
-    """Show the timeframe picker once an asset (or both) is selected."""
+    """Show the timeframe picker once an asset (or all) is selected; the
+    memecoin button jumps straight to the signal-only sniper scan."""
     user = await ensure_user(update, context)
     i18n = I18n(user.language)
     await answer_callback(update)
 
     token = parts[1].upper() if len(parts) >= 2 else ""
-    if token == BOTH:
-        label = i18n.t("btn_both")
+    if token == MEMECOIN:
+        from .sniper import run_sniper_scan
+
+        await run_sniper_scan(update, context)
+        return
+    if token == ALL:
+        label = i18n.t("btn_all")
     elif Symbol.parse(token):
         label = token
     else:
@@ -117,9 +125,9 @@ async def on_run(update: Update, context: ContextTypes.DEFAULT_TYPE, parts: tupl
 
 
 def _symbols_for_token(token: str) -> list[Symbol]:
-    """Resolve a callback token (BTCUSD/XAUUSD/BOTH) to concrete symbols."""
-    if token.upper() == BOTH:
-        return [Symbol.BTCUSD, Symbol.XAUUSD]
+    """Resolve a callback token (BTCUSDT/.../XAUUSD/ALL) to concrete symbols."""
+    if token.upper() == ALL:
+        return list(Symbol)
     symbol = Symbol.parse(token)
     return [symbol] if symbol else []
 

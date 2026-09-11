@@ -11,7 +11,7 @@ from tradingbot.charts import render_chart
 def test_render_chart_writes_png(tmp_path):
     candles = make_candles(count=120)
     output = tmp_path / "chart.png"
-    render_chart(candles, output, title="BTCUSD 1H")
+    render_chart(candles, output, title="BTCUSDT 1H")
     assert output.exists()
     assert output.stat().st_size > 0
     # PNG magic bytes.

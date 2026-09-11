@@ -14,9 +14,11 @@ from .storage.models import HistoryRow
 
 COLUMNS = [
     "timestamp", "symbol", "timeframe", "current_price", "technical_score",
-    "sentiment_score", "risk_score", "correlation_score", "total_score",
-    "signal", "rsi", "macd", "ma_50", "ma_200", "support", "resistance",
-    "stop_loss", "take_profit", "position_size_pct", "atr", "summary",
+    "volume_score", "volatility_score", "pattern_score", "sentiment_score",
+    "onchain_score", "macro_score", "risk_score", "correlation_score",
+    "sniper_score", "total_score", "confidence", "signal", "rsi", "macd",
+    "ma_50", "ma_200", "support", "resistance", "stop_loss", "take_profit",
+    "position_size_pct", "atr", "summary",
 ]
 
 
@@ -31,10 +33,17 @@ def history_row_to_csv(row: HistoryRow) -> str:
         row.timeframe,
         row.current_price,
         row.technical_score,
+        row.volume_score,
+        row.volatility_score,
+        row.pattern_score,
         row.sentiment_score,
+        row.onchain_score,
+        row.macro_score,
         row.risk_score,
         row.correlation_score,
+        row.sniper_score,
         row.total_score,
+        row.confidence,
         row.signal,
         row.rsi,
         row.macd,

@@ -23,6 +23,9 @@ charts/
 *.png
 *.csv
 
+# Node / Railway CLI
+node_modules/
+
 # IDE / OS
 .idea/
 .vscode/

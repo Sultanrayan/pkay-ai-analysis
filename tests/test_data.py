@@ -79,21 +79,22 @@ def test_candle_roundtrip_through_cache_dicts():
 @pytest.mark.asyncio
 async def test_demo_provider_deterministic_and_shaped():
     provider = DemoProvider()
-    first = await provider.fetch_candles(Symbol.BTCUSD, Timeframe.H1)
-    second = await provider.fetch_candles(Symbol.BTCUSD, Timeframe.H1)
+    first = await provider.fetch_candles(Symbol.BTCUSDT, Timeframe.H1)
+    second = await provider.fetch_candles(Symbol.BTCUSDT, Timeframe.H1)
     assert first == second
     assert len(first) == 500
     assert all(c.low <= c.high for c in first)
     assert all(c.open > 0 for c in first)
     assert all(c.volume >= 0 for c in first)
-    assert provider.supports(Symbol.BTCUSD) and provider.supports(Symbol.XAUUSD)
+    for symbol in Symbol:
+        assert provider.supports(symbol)
 
 
 @pytest.mark.asyncio
 async def test_demo_provider_timeframes_differ():
     provider = DemoProvider()
-    hourly = await provider.fetch_candles(Symbol.BTCUSD, Timeframe.H1)
-    weekly = await provider.fetch_candles(Symbol.BTCUSD, Timeframe.W1)
+    hourly = await provider.fetch_candles(Symbol.BTCUSDT, Timeframe.H1)
+    weekly = await provider.fetch_candles(Symbol.BTCUSDT, Timeframe.W1)
     # Candles are aligned to their timeframe: 1h steps of 60 minutes, weekly
     # steps of 7 days (plus a possible truncated leading candle).
     hourly_steps = {hourly[i + 1].epoch() - hourly[i].epoch() for i in range(len(hourly) - 1)}
@@ -110,12 +111,43 @@ async def test_demo_provider_timeframes_differ():
 async def test_manager_uses_demo_data_when_configured():
     settings = Settings(use_demo_data=True, chart_enabled=False)
     manager = MarketDataManager(object(), settings)  # no HTTP needed for demo
-    batch = await manager.get_candles(Symbol.BTCUSD, Timeframe.H1)
+    batch = await manager.get_candles(Symbol.BTCUSDT, Timeframe.H1)
     assert batch.is_demo
     assert batch.source == "demo"
     sentiment = await manager.get_sentiment(Symbol.XAUUSD)
     assert sentiment.is_demo
     assert sentiment.fear_greed_value > 0
+
+
+@pytest.mark.asyncio
+async def test_manager_simulated_sources_are_stable_and_flagged():
+    settings = Settings(use_demo_data=True, chart_enabled=False)
+    manager = MarketDataManager(object(), settings)
+
+    onchain = await manager.get_onchain(Symbol.ETHUSDT)
+    assert onchain.is_demo is True
+    assert onchain.mvrv is not None and onchain.mvrv > 0
+
+    macro = await manager.get_macro()
+    assert macro.is_demo is True
+    assert -1 <= macro.rate_trend <= 1
+
+    scan = await manager.get_sniper_scan()
+    assert scan.is_demo is True
+    assert len(scan.tokens) >= 2
+    assert all(t.liquidity_usd > 0 for t in scan.tokens)
+
+    # Deterministic: repeated calls return identical values.
+    assert (await manager.get_onchain(Symbol.ETHUSDT)) == onchain
+
+
+@pytest.mark.asyncio
+async def test_sniper_scan_disabled_returns_empty():
+    settings = Settings(use_demo_data=True, sniper_enabled=False, chart_enabled=False)
+    manager = MarketDataManager(object(), settings)
+    scan = await manager.get_sniper_scan()
+    assert scan.tokens == ()
+    assert scan.source == "disabled"
 
 
 @pytest.mark.asyncio
@@ -135,7 +167,7 @@ async def test_manager_raises_when_no_provider_and_no_fallback():
 
     manager._candle_chain = [FailingProvider()]  # type: ignore[assignment]
     with pytest.raises(ProviderError):
-        await manager.get_candles(Symbol.BTCUSD, Timeframe.H1)
+        await manager.get_candles(Symbol.BTCUSDT, Timeframe.H1)
 
 
 @pytest.mark.asyncio
@@ -149,4 +181,4 @@ async def test_manager_sentiment_requires_source_when_demo_disabled():
 
     manager._news = FailingNews()  # type: ignore[assignment]
     with pytest.raises(ProviderError):
-        await manager.get_sentiment(Symbol.BTCUSD)
+        await manager.get_sentiment(Symbol.BTCUSDT)

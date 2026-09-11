@@ -21,6 +21,7 @@ from .analysis.runner import AnalysisRunner
 from .config import Settings
 from .data.cache import Cache, NullCache, RedisCache
 from .data.manager import MarketDataManager
+from .llm import DeepSeekClient
 from .storage.ratelimit import MemoryRateLimiter, RateLimiter, RedisRateLimiter
 from .storage.repository import InMemoryStorage, PostgresStorage, Storage
 
@@ -36,6 +37,7 @@ class Services:
     limiter: RateLimiter
     data_manager: MarketDataManager
     runner: AnalysisRunner
+    llm: DeepSeekClient
     redis: Any | None = None
 
 
@@ -72,7 +74,8 @@ async def build_services(settings: Settings) -> Services:
         await storage.connect()
 
     data_manager = MarketDataManager(http, settings, cache=cache)
-    runner = AnalysisRunner(data_manager)
+    llm = DeepSeekClient(settings)
+    runner = AnalysisRunner(data_manager, settings, llm=llm)
     return Services(
         settings=settings,
         http=http,
@@ -81,6 +84,7 @@ async def build_services(settings: Settings) -> Services:
         limiter=limiter,
         data_manager=data_manager,
         runner=runner,
+        llm=llm,
         redis=redis,
     )
 
@@ -88,6 +92,7 @@ async def build_services(settings: Settings) -> Services:
 async def close_services(services: Services) -> None:
     """Release HTTP connections, Redis and database pools."""
     await services.http.aclose()
+    await services.llm.close()
     if services.redis is not None:
         try:
             await services.redis.aclose()

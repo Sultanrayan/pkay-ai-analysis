@@ -22,6 +22,20 @@ logger = logging.getLogger(__name__)
 
 SCHEMA_PATH = Path(__file__).with_name("schema.sql")
 
+#: Idempotent column additions applied to pre-V3 databases on connect. Fresh
+#: installs get them from schema.sql; existing ones catch up here.
+_COLUMN_MIGRATIONS: tuple[str, ...] = (
+    "ALTER TABLE analysis_history ADD COLUMN IF NOT EXISTS volume_score INTEGER",
+    "ALTER TABLE analysis_history ADD COLUMN IF NOT EXISTS volatility_score INTEGER",
+    "ALTER TABLE analysis_history ADD COLUMN IF NOT EXISTS pattern_score INTEGER",
+    "ALTER TABLE analysis_history ADD COLUMN IF NOT EXISTS onchain_score INTEGER",
+    "ALTER TABLE analysis_history ADD COLUMN IF NOT EXISTS macro_score INTEGER",
+    "ALTER TABLE analysis_history ADD COLUMN IF NOT EXISTS sniper_score INTEGER",
+    "ALTER TABLE analysis_history ADD COLUMN IF NOT EXISTS confidence NUMERIC(6, 2)",
+    "ALTER TABLE analysis_history ADD COLUMN IF NOT EXISTS llm_enhanced BOOLEAN NOT NULL DEFAULT FALSE",
+    "ALTER TABLE analysis_history ADD COLUMN IF NOT EXISTS agent_contributions JSONB",
+)
+
 
 def _utcnow() -> datetime:
     return datetime.now(timezone.utc)
@@ -72,17 +86,21 @@ class PostgresStorage:
             self._pool = None
 
     async def _ensure_schema(self) -> None:
-        """Apply schema.sql (idempotent) if the core tables are absent."""
+        """Apply schema.sql (idempotent) if the core tables are absent, then
+        bring existing databases up to date with additive column migrations."""
         assert self._pool is not None
-        has_users = await self._pool.fetchval(
-            "SELECT to_regclass('public.telegram_users') IS NOT NULL"
-        )
-        if has_users:
-            return
-        ddl = SCHEMA_PATH.read_text(encoding="utf-8")
         async with self._pool.acquire() as conn:
-            await conn.execute(ddl)
-        logger.info("Database schema applied")
+            has_users = await conn.fetchval(
+                "SELECT to_regclass('public.telegram_users') IS NOT NULL"
+            )
+            if not has_users:
+                ddl = SCHEMA_PATH.read_text(encoding="utf-8")
+                await conn.execute(ddl)
+                logger.info("Database schema applied")
+                return
+            for statement in _COLUMN_MIGRATIONS:
+                await conn.execute(statement)
+            logger.info("Database schema up to date")
 
     # -- users -------------------------------------------------------------
 
@@ -193,7 +211,7 @@ class PostgresStorage:
     def _prefs_from_row(row: asyncpg.Record) -> UserPreferences:
         return UserPreferences(
             user_id=row["user_id"],
-            default_symbol=Symbol.parse(row["default_symbol"]) or Symbol.BTCUSD,
+            default_symbol=Symbol.parse(row["default_symbol"]) or Symbol.BTCUSDT,
             default_timeframe=Timeframe.parse(row["default_timeframe"]) or Timeframe.H1,
             show_chart=row["show_chart"],
             show_indicators=row["show_indicators"],
@@ -211,22 +229,27 @@ class PostgresStorage:
             """
             INSERT INTO analysis_history (
                 user_id, symbol, timeframe, timestamp, current_price,
-                technical_score, sentiment_score, risk_score, correlation_score,
-                total_score, signal, rsi, macd, ma_50, ma_200, support, resistance,
+                technical_score, volume_score, volatility_score, pattern_score,
+                sentiment_score, onchain_score, macro_score, risk_score,
+                correlation_score, sniper_score, total_score, confidence, signal,
+                rsi, macd, ma_50, ma_200, support, resistance,
                 stop_loss, take_profit, position_size_pct, atr, summary, chart_url,
-                response_time_ms
+                response_time_ms, llm_enhanced, agent_contributions
             ) VALUES (
-                $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15,
-                $16, $17, $18, $19, $20, $21, $22, $23, $24
+                $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14,
+                $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27,
+                $28, $29, $30, $31, $32, $33
             )
             RETURNING id
             """,
             row.user_id, row.symbol, row.timeframe, row.timestamp, row.current_price,
-            row.technical_score, row.sentiment_score, row.risk_score, row.correlation_score,
-            row.total_score, row.signal, row.rsi, row.macd, row.ma_50, row.ma_200,
-            row.support, row.resistance, row.stop_loss, row.take_profit,
-            row.position_size_pct, row.atr, row.summary, row.chart_url,
-            row.response_time_ms,
+            row.technical_score, row.volume_score, row.volatility_score, row.pattern_score,
+            row.sentiment_score, row.onchain_score, row.macro_score, row.risk_score,
+            row.correlation_score, row.sniper_score, row.total_score, row.confidence,
+            row.signal, row.rsi, row.macd, row.ma_50, row.ma_200, row.support,
+            row.resistance, row.stop_loss, row.take_profit, row.position_size_pct,
+            row.atr, row.summary, row.chart_url, row.response_time_ms,
+            row.llm_enhanced, row.agent_contributions,
         )
         return int(record_id)
 
@@ -268,10 +291,17 @@ class PostgresStorage:
             timestamp=row["timestamp"],
             current_price=num(row["current_price"]),
             technical_score=row["technical_score"],
+            volume_score=row["volume_score"],
+            volatility_score=row["volatility_score"],
+            pattern_score=row["pattern_score"],
             sentiment_score=row["sentiment_score"],
+            onchain_score=row["onchain_score"],
+            macro_score=row["macro_score"],
             risk_score=row["risk_score"],
             correlation_score=row["correlation_score"],
+            sniper_score=row["sniper_score"],
             total_score=row["total_score"],
+            confidence=num(row["confidence"]),
             signal=row["signal"],
             rsi=num(row["rsi"]),
             macd=num(row["macd"]),
@@ -287,6 +317,8 @@ class PostgresStorage:
             chart_url=row["chart_url"],
             response_time_ms=row["response_time_ms"],
             message_id=row["message_id"],
+            llm_enhanced=row.get("llm_enhanced", False),
+            agent_contributions=row.get("agent_contributions"),
         )
 
 
@@ -359,7 +391,7 @@ class InMemoryStorage:
     async def update_preferences(self, user_id: int, **changes: Any) -> UserPreferences:
         prefs = await self.get_preferences(user_id)
         mapping = {
-            "default_symbol": lambda v: Symbol.parse(v) or Symbol.BTCUSD if isinstance(v, str) else v,
+            "default_symbol": lambda v: Symbol.parse(v) or Symbol.BTCUSDT if isinstance(v, str) else v,
             "default_timeframe": lambda v: Timeframe.parse(v) or Timeframe.H1 if isinstance(v, str) else v,
         }
         for key, value in changes.items():

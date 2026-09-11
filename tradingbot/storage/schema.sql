@@ -25,10 +25,17 @@ CREATE TABLE IF NOT EXISTS analysis_history (
     timestamp          TIMESTAMPTZ NOT NULL DEFAULT now(),
     current_price      NUMERIC(20, 6),
     technical_score    INTEGER,
+    volume_score       INTEGER,
+    volatility_score   INTEGER,
+    pattern_score      INTEGER,
     sentiment_score    INTEGER,
+    onchain_score      INTEGER,
+    macro_score        INTEGER,
     risk_score         INTEGER,
     correlation_score  INTEGER,
+    sniper_score       INTEGER,
     total_score        INTEGER,
+    confidence         NUMERIC(6, 2),
     signal             TEXT,
     rsi                NUMERIC(10, 4),
     macd               NUMERIC(20, 8),
@@ -43,7 +50,9 @@ CREATE TABLE IF NOT EXISTS analysis_history (
     summary            TEXT,
     chart_url          TEXT,
     response_time_ms   INTEGER,
-    message_id         BIGINT
+    message_id         BIGINT,
+    llm_enhanced       BOOLEAN     NOT NULL DEFAULT FALSE,
+    agent_contributions JSONB
 );
 
 CREATE INDEX IF NOT EXISTS idx_analysis_history_user_time
@@ -51,7 +60,7 @@ CREATE INDEX IF NOT EXISTS idx_analysis_history_user_time
 
 CREATE TABLE IF NOT EXISTS user_preferences (
     user_id              BIGINT PRIMARY KEY REFERENCES telegram_users (user_id) ON DELETE CASCADE,
-    default_symbol       TEXT        NOT NULL DEFAULT 'BTCUSD',
+    default_symbol       TEXT        NOT NULL DEFAULT 'BTCUSDT',
     default_timeframe    TEXT        NOT NULL DEFAULT '1h',
     show_chart           BOOLEAN     NOT NULL DEFAULT TRUE,
     show_indicators      BOOLEAN     NOT NULL DEFAULT TRUE,

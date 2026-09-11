@@ -1,6 +1,6 @@
 """Inline callback-data conventions.
 
-Callback payloads are colon-separated tokens, e.g. ``run:BTCUSD:1h``, so the
+Callback payloads are colon-separated tokens, e.g. ``run:BTCUSDT:1h``, so the
 router can split on the first token and every button carries just enough
 context to act on itself (no fragile session ordering).
 
@@ -30,6 +30,7 @@ PREFIX_ASSET = "asset"
 PREFIX_TIMEFRAME = "tf"
 PREFIX_RUN = "run"
 PREFIX_REPORT = "report"
+PREFIX_SNIPER = "sniper"
 PREFIX_LANG = "lang"
 PREFIX_TOGGLE = "toggle"
 
@@ -59,6 +60,10 @@ def run(symbol: Symbol, timeframe: Timeframe) -> str:
 
 def report(action: str) -> str:
     return f"{PREFIX_REPORT}:{action}"
+
+
+def sniper_scan() -> str:
+    return PREFIX_SNIPER
 
 
 def history_list() -> str:

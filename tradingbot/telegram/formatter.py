@@ -13,9 +13,15 @@ from telegram.constants import MessageLimit
 
 from ..agents.base import (
     CorrelationResult,
+    MacroResult,
+    OnChainResult,
+    PatternResult,
     RiskResult,
     SentimentResult,
+    SniperResult,
     TechnicalResult,
+    VolatilityResult,
+    VolumeResult,
 )
 from ..analysis.report import AnalysisReport
 from ..domain import Signal
@@ -23,11 +29,23 @@ from ..storage.models import HistoryRow, UserPreferences
 from .i18n import I18n
 
 SEPARATOR = "━━━━━━━━━━━━━━━━━━━━━"
+BAR_WIDTH = 10
+FILL = "█"
+EMPTY = "░"
 
 SIGNAL_EMOJI = {
     Signal.BUY.value: "🟢",
     Signal.SELL.value: "🔴",
     Signal.HOLD.value: "🟡",
+}
+
+#: team_scores keys -> i18n label key for the consensus block (short labels
+#: so they never collide with the collapsible report section headers).
+TEAM_LABELS = {
+    "technical": "lbl_team_technical",
+    "market_intel": "lbl_team_intel",
+    "risk": "lbl_team_risk",
+    "sniper": "lbl_team_sniper",
 }
 
 
@@ -50,6 +68,13 @@ def signal_with_emoji(signal: str | None) -> str:
         return "—"
     emoji = SIGNAL_EMOJI.get(signal.upper(), "")
     return f"{emoji} {signal.upper()}" if emoji else signal.upper()
+
+
+def progress_bar(percent: float, width: int = BAR_WIDTH) -> str:
+    """10-block progress bar for a 0..100 percentage."""
+    percent = max(0.0, min(100.0, percent))
+    filled = round(percent / 100.0 * width)
+    return FILL * filled + EMPTY * (width - filled)
 
 
 # --------------------------------------------------------------------------
@@ -94,20 +119,30 @@ def report_html(
         f"{i18n.t('lbl_time')}: {report.created_at:%d/%m/%Y %H:%M} UTC · "
         f"{i18n.t('lbl_timeframe')}: <code>{timeframe_label}</code>"
     )
+    if report.signal_source == "ai":
+        lines.append(i18n.t("ai_enhanced"))
     lines.append(SEPARATOR)
     lines.append(
         f"💰 <b>{i18n.t('lbl_price')}:</b> {money(report.current_price)}\n"
-        f"{i18n.t('lbl_signal')}: <b>{signal_with_emoji(report.decision.signal)}</b> "
-        f"({i18n.t('lbl_score')}: {report.decision.total_score:+.0f}/100)"
+        f"{i18n.t('lbl_signal')}: <b>{signal_with_emoji(report.final_signal)}</b> "
+        f"({i18n.t('lbl_score')}: {report.decision.total_score:+.0f}/100 · "
+        f"{i18n.t('lbl_confidence')}: {report.final_confidence:.0f}%)"
     )
+
+    # -- Agent consensus ------------------------------------------------
+    lines.append(SEPARATOR)
+    lines.append(f"<b>{i18n.t('sec_consensus')}</b> ({len(report.decision.team_scores)} teams)")
+    lines.extend(_consensus_lines(report, i18n))
 
     # -- Technical indicators ---------------------------------------------
     if prefs.show_indicators:
-        lines.extend(_technical_lines(report.technical, i18n))
+        lines.extend(_technical_lines(report, i18n))
 
     # -- Sentiment ---------------------------------------------------------
     if prefs.show_sentiment:
         lines.extend(_sentiment_lines(report.sentiment, i18n))
+        lines.extend(_onchain_lines(report.onchain, i18n))
+        lines.extend(_macro_lines(report.macro, i18n))
 
     # -- Risk management ---------------------------------------------------
     if prefs.show_risk:
@@ -116,13 +151,16 @@ def report_html(
     # -- Correlation -------------------------------------------------------
     lines.extend(_correlation_lines(report.correlation, i18n))
 
+    # -- Sniper scan -------------------------------------------------------
+    lines.extend(_sniper_lines(report.sniper, i18n))
+
     lines.append(SEPARATOR)
     lines.append(f"<b>{i18n.t('sec_summary')}</b>")
-    lines.append(escape(report.decision.summary))
+    lines.append(escape(report.final_summary))
 
-    if report.any_demo_data:
+    if report.demo_sources:
         lines.append("")
-        lines.append(i18n.t("demo_notice"))
+        lines.append(i18n.t("demo_notice", sources=", ".join(report.demo_sources)))
     return "\n".join(lines)
 
 
@@ -135,16 +173,38 @@ def _bullet(label: str, value: str) -> str:
     return f"• <b>{escape(label)}:</b> {escape(value)}"
 
 
-def _technical_lines(technical: TechnicalResult, i18n: I18n) -> list[str]:
+def _consensus_lines(report: AnalysisReport, i18n: I18n) -> list[str]:
+    """Per-team progress bars: how aligned each team is (0..100%)."""
+    lines: list[str] = []
+    for key, score in report.decision.team_scores.items():
+        label = i18n.t(TEAM_LABELS.get(key, key))
+        if key == "sniper":
+            percent = max(0.0, min(100.0, score))
+            detail = i18n.t("lbl_opportunity")
+        else:
+            percent = (max(-100.0, min(100.0, score)) + 100.0) / 2.0
+            detail = signed(score)
+        lines.append(f"{label}: <code>{progress_bar(percent)}</code> {percent:.0f}% ({detail})")
+    return lines
+
+
+def _technical_lines(report: AnalysisReport, i18n: I18n) -> list[str]:
+    technical: TechnicalResult = report.technical
+    volume: VolumeResult = report.volume
+    volatility: VolatilityResult = report.volatility
+    pattern: PatternResult = report.pattern
     lines = [SEPARATOR, f"<b>{i18n.t('sec_technical')}</b>"]
     lines.append(_bullet(i18n.t("lbl_rsi"), f"{technical.rsi:.1f}" if technical.rsi is not None else i18n.t("na")))
     lines.append(_bullet(i18n.t("lbl_macd"), f"{technical.macd:.6f}" if technical.macd is not None else i18n.t("na")))
-    lines.append(_bullet(
-        i18n.t("lbl_macd_signal"),
-        f"{technical.macd_signal:.6f}" if technical.macd_signal is not None else i18n.t("na"),
-    ))
     lines.append(_bullet(i18n.t("lbl_ma50"), money(technical.ma_50)))
     lines.append(_bullet(i18n.t("lbl_ma200"), money(technical.ma_200)))
+    lines.append(_bullet(i18n.t("lbl_volume"), f"{volume.volume_ratio:.2f}x avg"))
+    lines.append(_bullet(i18n.t("lbl_obv"), signed(volume.obv_slope * 100.0, 0)))
+    lines.append(_bullet(
+        i18n.t("lbl_volatility"),
+        f"{volatility.band_width_pct:.1f}% band" + (" · " + i18n.t("lbl_squeeze") if volatility.squeeze else ""),
+    ))
+    lines.append(_bullet(i18n.t("lbl_pattern"), pattern.breakout if pattern.breakout != "none" else i18n.t("na")))
     lines.append(_bullet(i18n.t("lbl_support"), money(technical.support)))
     lines.append(_bullet(i18n.t("lbl_resistance"), money(technical.resistance)))
     return lines
@@ -159,6 +219,24 @@ def _sentiment_lines(sentiment: SentimentResult, i18n: I18n) -> list[str]:
         i18n.t("lbl_fng"), f"{sentiment.fear_greed_value:.0f} ({sentiment.fear_greed_label})"
     ))
     lines.append(_bullet(i18n.t("lbl_social"), f"{sentiment.social_volume:,}"))
+    return lines
+
+
+def _onchain_lines(onchain: OnChainResult, i18n: I18n) -> list[str]:
+    lines = [SEPARATOR, f"<b>{i18n.t('sec_onchain')}</b>"]
+    lines.append(_bullet(i18n.t("lbl_whale"), signed(onchain.whale_activity)))
+    lines.append(_bullet(i18n.t("lbl_netflow"), signed(onchain.exchange_netflow)))
+    lines.append(_bullet(i18n.t("lbl_active"), signed(onchain.active_addresses)))
+    lines.append(_bullet(i18n.t("lbl_mvrv"), f"{onchain.mvrv:.2f}" if onchain.mvrv is not None else i18n.t("na")))
+    lines.append(_bullet(i18n.t("lbl_sopr"), f"{onchain.sopr:.3f}" if onchain.sopr is not None else i18n.t("na")))
+    return lines
+
+
+def _macro_lines(macro: MacroResult, i18n: I18n) -> list[str]:
+    lines = [SEPARATOR, f"<b>{i18n.t('sec_macro')}</b>"]
+    lines.append(_bullet(i18n.t("lbl_rate"), signed(macro.rate_trend * 100.0, 0)))
+    lines.append(_bullet(i18n.t("lbl_dxy"), signed(macro.dxy_trend * 100.0, 0)))
+    lines.append(_bullet(i18n.t("lbl_inflation"), signed(macro.inflation_trend * 100.0, 0)))
     return lines
 
 
@@ -184,6 +262,61 @@ def _correlation_lines(correlation: CorrelationResult, i18n: I18n) -> list[str]:
         if correlation.divergence_note:
             lines.append(f"<i>{escape(correlation.divergence_note)}</i>")
     return lines
+
+
+def _sniper_lines(sniper: SniperResult, i18n: I18n) -> list[str]:
+    lines = [SEPARATOR, f"<b>{i18n.t('sec_sniper')}</b>"]
+    if not sniper.opportunities:
+        lines.append(_bullet(i18n.t("lbl_opportunity"), i18n.t("sniper_empty")))
+    else:
+        lines.append(_bullet(
+            i18n.t("lbl_opportunity"),
+            f"{sniper.opportunity_score:.0f}/100 · {i18n.t('lbl_safety')} {sniper.safety_score:.0f}/100",
+        ))
+        for opp in sniper.opportunities:
+            flags = ", ".join(opp.risk_flags) if opp.risk_flags else i18n.t("na")
+            lines.append(_bullet(
+                f"{opp.symbol} ({opp.chain})",
+                f"{i18n.t('lbl_liquidity')} {money(opp.liquidity_usd, 0)} · "
+                f"{i18n.t('lbl_hype')} {opp.hype_score:.0f} · "
+                f"{i18n.t('lbl_safety')} {opp.safety_score:.0f} · "
+                f"{opp.price_change_pct:+.1f}%",
+            ))
+            if opp.risk_flags:
+                lines.append(f"  ⚠️ <b>{escape(i18n.t('lbl_risk_flags'))}:</b> {escape(flags)}")
+    lines.append(i18n.t("sniper_disclaimer"))
+    return lines
+
+
+# --------------------------------------------------------------------------
+# Sniper scan page (standalone /sniper command)
+# --------------------------------------------------------------------------
+
+def sniper_html(result: SniperResult, i18n: I18n) -> str:
+    """Standalone sniper scan page rendered by /sniper."""
+    lines = [f"<b>{i18n.t('sniper_title')}</b>", SEPARATOR]
+    if result.is_demo:
+        lines.append("⚠️ <i>Simulated demo scan — connect DEX Screener/Raydium for live data.</i>")
+        lines.append(SEPARATOR)
+    if not result.opportunities:
+        lines.append(i18n.t("sniper_empty"))
+    else:
+        lines.append(_bullet(
+            i18n.t("lbl_opportunity"),
+            f"{result.opportunity_score:.0f}/100 · {i18n.t('lbl_safety')} {result.safety_score:.0f}/100",
+        ))
+        for opp in result.opportunities:
+            flags = ", ".join(opp.risk_flags) if opp.risk_flags else i18n.t("na")
+            lines.append(SEPARATOR)
+            lines.append(f"<b>{escape(opp.symbol)}</b> · {escape(opp.chain)}")
+            lines.append(_bullet(i18n.t("lbl_liquidity"), money(opp.liquidity_usd, 0)))
+            lines.append(_bullet(i18n.t("lbl_hype"), f"{opp.hype_score:.0f}/100"))
+            lines.append(_bullet(i18n.t("lbl_safety"), f"{opp.safety_score:.0f}/100"))
+            lines.append(_bullet(i18n.t("lbl_breakout"), f"{opp.price_change_pct:+.1f}%"))
+            lines.append(_bullet(i18n.t("lbl_risk_flags"), flags if flags else "—"))
+    lines.append(SEPARATOR)
+    lines.append(i18n.t("sniper_disclaimer"))
+    return "\n".join(lines)
 
 
 # --------------------------------------------------------------------------
@@ -217,7 +350,9 @@ def history_detail_html(row: HistoryRow, i18n: I18n) -> str:
         (
             f"💰 <b>{i18n.t('lbl_price')}:</b> {money(row.current_price)}\n"
             f"{i18n.t('lbl_signal')}: <b>{signal_with_emoji(row.signal)}</b> "
-            f"({i18n.t('lbl_score')}: {row.total_score:+.0f}/100)"
+            f"({i18n.t('lbl_score')}: {row.total_score:+.0f}/100"
+            + (f" · {i18n.t('lbl_confidence')}: {row.confidence:.0f}%" if row.confidence is not None else "")
+            + ")"
         ),
         SEPARATOR,
         f"<b>{i18n.t('sec_technical')}</b>",
@@ -243,6 +378,7 @@ def history_detail_html(row: HistoryRow, i18n: I18n) -> str:
 def settings_html(prefs: UserPreferences, i18n: I18n) -> str:
     """Settings panel describing the current preferences."""
     current_lang = i18n.t("lang_kh") if i18n.is_khmer else i18n.t("lang_en")
+
     def state(enabled: bool) -> str:
         return i18n.t("value_on") if enabled else i18n.t("value_off")
 

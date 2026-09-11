@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "trading-analysis-bot"
-version = "0.1.0"
-description = "Telegram trading analysis bot for BTCUSD & XAUUSD with a multi-agent architecture"
+version = "3.0.0"
+description = "Telegram multi-asset trading analysis bot (BTCUSDT/ETHUSDT/SOLUSDT/XAUUSD) with 10 AI agents and DeepSeek-V4-Flash enrichment"
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "MIT" }

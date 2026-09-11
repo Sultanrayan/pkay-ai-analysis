@@ -23,6 +23,7 @@ def main_menu(i18n: I18n) -> InlineKeyboardMarkup:
     """Welcome menu: one tall button per action."""
     return InlineKeyboardMarkup([
         [_button(i18n.t("btn_analyze"), cb.asset_picker())],
+        [_button(i18n.t("btn_sniper"), cb.sniper_scan())],
         [_button(i18n.t("btn_history"), cb.history_list())],
         [_button(i18n.t("btn_settings"), cb.SETTINGS)],
         [_button(i18n.t("btn_help"), cb.HELP)],
@@ -34,17 +35,21 @@ def back_row(i18n: I18n) -> list[list[InlineKeyboardButton]]:
 
 
 def asset_picker(i18n: I18n) -> InlineKeyboardMarkup:
+    """Asset grid: the four majors, all-of-them, and the memecoin sniper."""
     buttons = [
-        [_button(i18n.t("btn_btcusd"), cb.pick_asset(Symbol.BTCUSD))],
-        [_button(i18n.t("btn_xauusd"), cb.pick_asset(Symbol.XAUUSD))],
-        [_button(i18n.t("btn_both"), cb.asset_picker() + ":both")],
+        [_button(i18n.t("btn_btcusdt"), cb.pick_asset(Symbol.BTCUSDT)),
+         _button(i18n.t("btn_ethusdt"), cb.pick_asset(Symbol.ETHUSDT))],
+        [_button(i18n.t("btn_solusdt"), cb.pick_asset(Symbol.SOLUSDT)),
+         _button(i18n.t("btn_xauusd"), cb.pick_asset(Symbol.XAUUSD))],
+        [_button(i18n.t("btn_all"), cb.asset_picker() + ":all"),
+         _button(i18n.t("btn_memecoin"), cb.asset_picker() + ":memecoin")],
         [_button(i18n.t("btn_menu"), cb.MENU)],
     ]
     return InlineKeyboardMarkup(buttons)
 
 
 def timeframe_picker(symbol_token: str, i18n: I18n) -> InlineKeyboardMarkup:
-    """Timeframe grid for a symbol token (BTCUSD / XAUUSD / BOTH)."""
+    """Timeframe grid for a symbol token (BTCUSDT / ETHUSDT / SOLUSDT / XAUUSD / ALL)."""
     buttons: list[list[InlineKeyboardButton]] = [
         [
             _button(i18n.t("tf_1h"), cb.pick_timeframe(symbol_token, Timeframe.H1)),
@@ -67,7 +72,10 @@ def report_actions(i18n: I18n) -> InlineKeyboardMarkup:
             _button(i18n.t("btn_export"), cb.report(cb.REPORT_EXPORT)),
         ],
         [
+            _button(i18n.t("btn_sniper"), cb.sniper_scan()),
             _button(i18n.t("btn_history"), cb.report(cb.REPORT_HISTORY)),
+        ],
+        [
             _button(i18n.t("btn_menu"), cb.MENU),
         ],
     ]

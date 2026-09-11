@@ -9,7 +9,7 @@
 #      secret named `PACKAGES_PAT`.
 #
 # Triggers:
-#   - pushing a version tag, e.g.  git tag v0.1.0 && git push origin v0.1.0
+#   - pushing a version tag, e.g.  git tag v3.0.0 && git push origin v3.0.0
 #   - manually via Actions -> "Publish to GitHub Packages" -> Run workflow
 
 name: Publish to GitHub Packages

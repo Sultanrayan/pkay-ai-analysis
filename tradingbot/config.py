@@ -10,7 +10,6 @@ from __future__ import annotations
 
 import logging
 import os
-from copy import copy
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -21,11 +20,24 @@ from .domain import Symbol, Timeframe
 ENV_FILE = ".env"
 
 DEFAULT_FEAR_GREED_URL = "https://api.alternative.me/fng/?limit=1"
+#: DeepSeek chat-completions endpoint (OpenAI-compatible).
+DEFAULT_DEEPSEEK_BASE_URL = "https://api.deepseek.com"
+DEFAULT_DEEPSEEK_MODEL = "deepseek-v4-flash"
+#: Sniper scan defaults (kept here so Settings defaults stay self-contained).
+DEFAULT_SNIPER_MIN_LIQUIDITY = 500_000.0
+DEFAULT_SNIPER_MAX_OPPORTUNITIES = 3
+
 DEFAULT_NEWS_FEEDS: dict[Symbol, str] = {
-    # Crypto-specific feed.
-    Symbol.BTCUSD: "https://www.coindesk.com/arc/outboundfeeds/rss/",
-    # Gold/prices search feed (Kitco's own RSS now serves an HTML app; Google
-    # News RSS aggregates Kitco + Reuters + Yahoo gold headlines instead).
+    # Crypto-specific feed (covers all crypto majors).
+    Symbol.BTCUSDT: "https://www.coindesk.com/arc/outboundfeeds/rss/",
+    # Google News RSS aggregates reliable per-asset headlines (Kitco's own
+    # RSS now serves an HTML app for gold; CoinDesk is BTC-only).
+    Symbol.ETHUSDT: (
+        "https://news.google.com/rss/search?q=ethereum+price&hl=en-US&gl=US&ceid=US:en"
+    ),
+    Symbol.SOLUSDT: (
+        "https://news.google.com/rss/search?q=solana+price&hl=en-US&gl=US&ceid=US:en"
+    ),
     Symbol.XAUUSD: (
         "https://news.google.com/rss/search?q=gold+price&hl=en-US&gl=US&ceid=US:en"
     ),
@@ -63,7 +75,7 @@ class Settings:
     redis_url: str = "redis://localhost:6379/0"
 
     # Bot defaults
-    default_symbol: Symbol = Symbol.BTCUSD
+    default_symbol: Symbol = Symbol.BTCUSDT
     default_timeframe: Timeframe = Timeframe.H1
     max_daily_requests: int = 10
     log_level: str = "INFO"
@@ -74,6 +86,18 @@ class Settings:
     fear_greed_api_url: str = DEFAULT_FEAR_GREED_URL
     news_rss_feeds: tuple[str, ...] = field(default_factory=tuple)
     candle_cache_ttl: int = 120  # seconds
+
+    # DeepSeek-V4-Flash (optional LLM signal enrichment; the deterministic
+    # decision engine always remains the fallback when disabled/unreachable).
+    deepseek_api_key: str = ""
+    deepseek_model: str = DEFAULT_DEEPSEEK_MODEL
+    deepseek_base_url: str = DEFAULT_DEEPSEEK_BASE_URL
+    deepseek_timeout: float = 20.0
+
+    # Signal-only memecoin sniper (never executes orders).
+    sniper_enabled: bool = True
+    sniper_min_liquidity: float = DEFAULT_SNIPER_MIN_LIQUIDITY
+    sniper_max_opportunities: int = DEFAULT_SNIPER_MAX_OPPORTUNITIES
 
     # Charts
     chart_enabled: bool = True
@@ -92,7 +116,7 @@ class Settings:
         """
         load_dotenv(env_file, override=override)
 
-        default_symbol = Symbol.parse(_first_env("DEFAULT_SYMBOL", "DEFAULT_ASSET")) or Symbol.BTCUSD
+        default_symbol = Symbol.parse(_first_env("DEFAULT_SYMBOL", "DEFAULT_ASSET")) or Symbol.BTCUSDT
         default_timeframe = (
             Timeframe.parse(_first_env("DEFAULT_TIMEFRAME", "DEFAULT_INTERVAL")) or Timeframe.H1
         )
@@ -114,6 +138,18 @@ class Settings:
             cache_ttl = int(os.getenv("CANDLE_CACHE_TTL", "120"))
         except ValueError:
             cache_ttl = 120
+        try:
+            deepseek_timeout = float(os.getenv("DEEPSEEK_TIMEOUT_SECONDS", "20"))
+        except ValueError:
+            deepseek_timeout = 20.0
+        try:
+            sniper_min_liquidity = float(os.getenv("SNIPER_MIN_LIQUIDITY", str(DEFAULT_SNIPER_MIN_LIQUIDITY)))
+        except ValueError:
+            sniper_min_liquidity = DEFAULT_SNIPER_MIN_LIQUIDITY
+        try:
+            sniper_max_opps = int(os.getenv("SNIPER_MAX_OPPORTUNITIES", str(DEFAULT_SNIPER_MAX_OPPORTUNITIES)))
+        except ValueError:
+            sniper_max_opps = DEFAULT_SNIPER_MAX_OPPORTUNITIES
 
         return cls(
             telegram_bot_token=os.getenv("TELEGRAM_BOT_TOKEN", ""),
@@ -131,6 +167,13 @@ class Settings:
             fear_greed_api_url=os.getenv("FEAR_GREED_API_URL", DEFAULT_FEAR_GREED_URL),
             news_rss_feeds=feeds,
             candle_cache_ttl=cache_ttl,
+            deepseek_api_key=os.getenv("DEEPSEEK_API_KEY", ""),
+            deepseek_model=os.getenv("DEEPSEEK_MODEL", DEFAULT_DEEPSEEK_MODEL),
+            deepseek_base_url=os.getenv("DEEPSEEK_BASE_URL", DEFAULT_DEEPSEEK_BASE_URL).rstrip("/"),
+            deepseek_timeout=deepseek_timeout,
+            sniper_enabled=_bool(os.getenv("SNIPER_ENABLED"), default=True),
+            sniper_min_liquidity=sniper_min_liquidity,
+            sniper_max_opportunities=sniper_max_opps,
             chart_enabled=_bool(os.getenv("CHART_ENABLED"), default=True),
             chart_path=Path(os.getenv("CHART_PATH", "charts")),
         )

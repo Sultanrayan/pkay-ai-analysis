@@ -40,8 +40,9 @@ def test_csv_has_header_and_values():
     body = parsed[1]
     assert body[1] == "BTCUSD"
     assert body[4] == "42"
-    assert body[10] == "55.2"
-    assert body[20].startswith("Test summary with")  # quoted field kept intact
+    assert body[16] == "HOLD"  # signal column
+    assert body[17] == "55.2"  # rsi column
+    assert body[27].startswith("Test summary with")  # quoted field kept intact
 
 
 def test_csv_roundtrips_via_reader():

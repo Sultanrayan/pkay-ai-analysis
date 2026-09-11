@@ -17,7 +17,16 @@ import logging
 from dataclasses import dataclass
 
 from ..config import Settings
-from ..domain import Candle, NewsItem, SentimentSnapshot, Symbol, Timeframe
+from ..domain import (
+    Candle,
+    MacroSnapshot,
+    NewsItem,
+    OnChainSnapshot,
+    SentimentSnapshot,
+    SniperScan,
+    Symbol,
+    Timeframe,
+)
 from .cache import Cache, NullCache
 from .news import NewsService
 from .providers import (
@@ -29,6 +38,7 @@ from .providers import (
     candle_to_dict,
     candles_from_dicts,
 )
+from .simulated import DemoMacroSource, DemoOnChainSource, DemoSniperScanner
 
 logger = logging.getLogger(__name__)
 
@@ -67,6 +77,9 @@ class MarketDataManager:
             if settings.demo_fallback:
                 self._candle_chain.append(demo)
         self._sentiment_demo = DemoSentimentSource(settings)
+        self._onchain_demo = DemoOnChainSource()
+        self._macro_demo = DemoMacroSource()
+        self._sniper_scanner = DemoSniperScanner()
 
     # -- candles -----------------------------------------------------------
 
@@ -114,6 +127,22 @@ class MarketDataManager:
             f"(live APIs failed and demo fallback is disabled)"
         )
 
+    # -- on-chain / macro / sniper (simulated sources; see data/simulated.py) --
+
+    async def get_onchain(self, symbol: Symbol) -> OnChainSnapshot:
+        """Symbol-scoped on-chain snapshot (demo heuristic unless wired live)."""
+        return self._onchain_demo.build(symbol)
+
+    async def get_macro(self) -> MacroSnapshot:
+        """Macro snapshot (demo heuristic unless wired live)."""
+        return self._macro_demo.build()
+
+    async def get_sniper_scan(self) -> SniperScan:
+        """Signal-only memecoin scan; empty when the sniper is disabled."""
+        if not self._settings.sniper_enabled:
+            return SniperScan(tokens=(), source="disabled", is_demo=True)
+        return self._sniper_scanner.scan()
+
     # -- sentiment ---------------------------------------------------------
 
     async def get_sentiment(self, symbol: Symbol) -> SentimentSnapshot:
@@ -135,7 +164,9 @@ class DemoSentimentSource:
     #: Stable per-symbol demo profiles so reports look sane offline.
     _PROFILES: dict[Symbol, tuple[float, float, str]] = {
         # symbol -> (fear&greed value, f&g label, headline seed text)
-        Symbol.BTCUSD: (64.0, "Greed", "Bitcoin ETF demand strengthens as institutions accumulate"),
+        Symbol.BTCUSDT: (64.0, "Greed", "Bitcoin ETF demand strengthens as institutions accumulate"),
+        Symbol.ETHUSDT: (58.0, "Greed", "Ethereum staking inflows rise as layer-2 activity grows"),
+        Symbol.SOLUSDT: (61.0, "Greed", "Solana network activity surges as new protocols launch"),
         Symbol.XAUUSD: (56.0, "Greed", "Gold demand rises on safe-haven inflows amid uncertainty"),
     }
 

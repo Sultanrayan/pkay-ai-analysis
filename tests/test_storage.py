@@ -26,7 +26,7 @@ async def test_preferences_defaults_and_updates():
     storage = InMemoryStorage()
     await storage.get_or_create_user(7)
     prefs = await storage.get_preferences(7)
-    assert prefs.default_symbol == Symbol.BTCUSD
+    assert prefs.default_symbol == Symbol.BTCUSDT
     assert prefs.show_chart is True
 
     updated = await storage.update_preferences(7, default_symbol="XAUUSD", show_chart=False)
@@ -50,16 +50,16 @@ async def test_history_roundtrip_ordering_and_ownership():
         )
 
     base = datetime(2026, 5, 1, tzinfo=timezone.utc)
-    id_old = await storage.add_analysis(row_for(1, Symbol.BTCUSD, base))
+    id_old = await storage.add_analysis(row_for(1, Symbol.BTCUSDT, base))
     id_new = await storage.add_analysis(row_for(1, Symbol.XAUUSD, base.replace(day=2)))
-    await storage.add_analysis(row_for(2, Symbol.BTCUSD, base.replace(day=3)))
+    await storage.add_analysis(row_for(2, Symbol.BTCUSDT, base.replace(day=3)))
 
     history = await storage.list_history(1)
     assert [r.id for r in history] == [id_new, id_old]  # newest first
     assert all(r.user_id == 1 for r in history)
 
     detail = await storage.get_history_row(1, id_old)
-    assert detail is not None and detail.symbol == "BTCUSD"
+    assert detail is not None and detail.symbol == "BTCUSDT"
     # Ownership enforced: user 2 cannot read user 1's row.
     assert await storage.get_history_row(2, id_old) is None
 

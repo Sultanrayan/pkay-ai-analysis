@@ -58,6 +58,24 @@ def ema_series(values: Sequence[float], period: int) -> list[Number]:
     return out
 
 
+def std_series(values: Sequence[float], period: int = 20) -> list[Number]:
+    """Rolling population standard deviation (``None`` during warm-up)."""
+    n = len(values)
+    out: list[Number] = [None] * n
+    if n < period:
+        return out
+    window: list[float] = []
+    for i, value in enumerate(values):
+        window.append(value)
+        if len(window) > period:
+            window.pop(0)
+        if len(window) == period:
+            mean = sum(window) / period
+            variance = sum((v - mean) ** 2 for v in window) / period
+            out[i] = math.sqrt(variance)
+    return out
+
+
 def rsi_series(values: Sequence[float], period: int = 14) -> list[Number]:
     """Relative Strength Index (Wilder smoothing).
 

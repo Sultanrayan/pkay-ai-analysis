@@ -32,7 +32,12 @@ DEFAULT_HEADERS = {
     )
 }
 
-PRICE_BASE: dict[Symbol, float] = {Symbol.BTCUSD: 64_000.0, Symbol.XAUUSD: 2_350.0}
+PRICE_BASE: dict[Symbol, float] = {
+    Symbol.BTCUSDT: 64_000.0,
+    Symbol.ETHUSDT: 3_200.0,
+    Symbol.SOLUSDT: 150.0,
+    Symbol.XAUUSD: 2_350.0,
+}
 
 
 class ProviderError(Exception):
@@ -138,15 +143,20 @@ def parse_yahoo_chart(payload: dict[str, Any]) -> list[Candle]:
 # --------------------------------------------------------------------------
 
 class BinanceProvider:
-    """Public Binance REST API (no keys needed) for BTCUSDT klines.
+    """Public Binance REST API (no keys needed) for the crypto majors.
 
-    ``BTCUSD`` maps to Binance's ``BTCUSDT`` market.
+    ``BTCUSDT``/``ETHUSDT``/``SOLUSDT`` map 1:1 to Binance spot markets;
+    gold (``XAUUSD``) is served by the Yahoo provider instead.
     """
 
     name = "binance"
     is_demo = False
     BASE_URL = "https://api.binance.com/api/v3/klines"
-    _MARKETS: dict[Symbol, str] = {Symbol.BTCUSD: "BTCUSDT"}
+    _MARKETS: dict[Symbol, str] = {
+        Symbol.BTCUSDT: "BTCUSDT",
+        Symbol.ETHUSDT: "ETHUSDT",
+        Symbol.SOLUSDT: "SOLUSDT",
+    }
 
     def __init__(self, client: httpx.AsyncClient, timeout: float = 10.0) -> None:
         self._client = client
@@ -179,8 +189,10 @@ class YahooProvider:
     """Keyless Yahoo Finance chart API.
 
     Symbol routing (public/spot-vs-futures realities):
-      * ``BTCUSD``  -> ``BTC-USD``  (crypto pair)
-      * ``XAUUSD``  -> ``GC=F``     (COMEX gold futures, a liquid proxy for
+      * ``BTCUSDT`` -> ``BTC-USD`` (crypto pair; fallback when Binance is down)
+      * ``ETHUSDT`` -> ``ETH-USD``
+      * ``SOLUSDT`` -> ``SOL-USD``
+      * ``XAUUSD``  -> ``GC=F``    (COMEX gold futures, a liquid proxy for
         spot gold since keyless spot gold feeds are not available)
 
     Yahoo does not expose 4h/1w intervals natively, so 4h candles are
@@ -192,7 +204,12 @@ class YahooProvider:
     name = "yahoo"
     is_demo = False
     BASE_URL = "https://query1.finance.yahoo.com/v8/finance/chart"
-    _TICKERS: dict[Symbol, str] = {Symbol.BTCUSD: "BTC-USD", Symbol.XAUUSD: "GC=F"}
+    _TICKERS: dict[Symbol, str] = {
+        Symbol.BTCUSDT: "BTC-USD",
+        Symbol.ETHUSDT: "ETH-USD",
+        Symbol.SOLUSDT: "SOL-USD",
+        Symbol.XAUUSD: "GC=F",
+    }
     #: (interval, range) per timeframe. Aggregated timeframes use 60m.
     _INTERVALS: dict[Timeframe, tuple[str, str]] = {
         Timeframe.H1: ("60m", "10d"),
