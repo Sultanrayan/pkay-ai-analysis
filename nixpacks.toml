@@ -8,4 +8,4 @@ nixpacksVersion = "0.10.0"
 # No custom build steps needed - pip install handles dependencies
 
 [phases.deploy]
-startCommand = "python webhook_server.py"
+startCommand = "python api_server.py"
