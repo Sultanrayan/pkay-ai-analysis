@@ -69,3 +69,66 @@ CREATE TABLE IF NOT EXISTS user_preferences (
     notification_enabled TEXT        NOT NULL DEFAULT 'daily',
     updated_at           TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+-- ---------------------------------------------------------------------------
+-- Public API (v3): accounts, hashed keys and request usage.
+-- ---------------------------------------------------------------------------
+
+CREATE TABLE IF NOT EXISTS api_users (
+    id          BIGSERIAL PRIMARY KEY,
+    google_sub  TEXT UNIQUE,                 -- Google subject id
+    email       TEXT,
+    name        TEXT,
+    picture     TEXT,
+    password_hash TEXT,                      -- optional password (PBKDF2)
+    plan        TEXT        NOT NULL DEFAULT 'free',
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+    last_login  TIMESTAMPTZ
+);
+
+CREATE TABLE IF NOT EXISTS api_user_settings (
+    user_id           BIGINT PRIMARY KEY REFERENCES api_users (id) ON DELETE CASCADE,
+    language          TEXT        NOT NULL DEFAULT 'en',
+    currency          TEXT        NOT NULL DEFAULT 'usd',
+    timezone          TEXT        NOT NULL DEFAULT 'utc',
+    theme             TEXT        NOT NULL DEFAULT 'dark',
+    density           TEXT        NOT NULL DEFAULT 'comfortable',
+    default_model     TEXT        NOT NULL DEFAULT 'deepseek-v4-flash',
+    default_symbol    TEXT        NOT NULL DEFAULT 'BTCUSDT',
+    default_timeframe TEXT        NOT NULL DEFAULT '1h',
+    notifications     JSONB       NOT NULL DEFAULT '{}'::jsonb,
+    updated_at        TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS api_keys (
+    id            BIGSERIAL PRIMARY KEY,
+    user_id       BIGINT REFERENCES api_users (id) ON DELETE CASCADE,
+    name          TEXT        NOT NULL DEFAULT 'Untitled key',
+    key_prefix    TEXT        NOT NULL,      -- safe display prefix (e.g. pk_live_ab12)
+    key_hash      TEXT        NOT NULL UNIQUE, -- sha256 of the raw key
+    environment   TEXT        NOT NULL DEFAULT 'live',
+    scopes        TEXT[]      NOT NULL DEFAULT '{}',
+    request_count BIGINT      NOT NULL DEFAULT 0,
+    created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+    last_used_at  TIMESTAMPTZ,
+    revoked_at    TIMESTAMPTZ
+);
+
+CREATE INDEX IF NOT EXISTS idx_api_keys_hash ON api_keys (key_hash);
+CREATE INDEX IF NOT EXISTS idx_api_keys_user ON api_keys (user_id, created_at DESC);
+
+CREATE TABLE IF NOT EXISTS api_usage (
+    id          BIGSERIAL PRIMARY KEY,
+    key_id      BIGINT REFERENCES api_keys (id) ON DELETE SET NULL,
+    endpoint    TEXT        NOT NULL,
+    method      TEXT        NOT NULL DEFAULT 'POST',
+    status_code INTEGER     NOT NULL,
+    symbol      TEXT,
+    timeframe   TEXT,
+    model       TEXT,
+    latency_ms  INTEGER,
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_api_usage_key_time ON api_usage (key_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_api_usage_time ON api_usage (created_at DESC);

@@ -74,6 +74,20 @@ class Settings:
     database_url: str = "postgresql://tradingbot:tradingbot@localhost:5432/trading_bot"
     redis_url: str = "redis://localhost:6379/0"
 
+    # Public JSON API (v3). Comma-separated keys in PKAY_API_KEYS.
+    # An empty tuple means the API is open (development only).
+    api_keys: tuple[str, ...] = field(default_factory=tuple)
+
+    # Google OAuth (public API sign-in / registration)
+    google_client_id: str = ""
+    google_client_secret: str = ""
+    auth_base_url: str = "https://auth.pkay.fun"
+    frontend_url: str = ""
+    session_secret: str = ""
+
+    # CORS: comma-separated allowed origins. Empty means allow any origin.
+    cors_origins: tuple[str, ...] = field(default_factory=tuple)
+
     # Bot defaults
     default_symbol: Symbol = Symbol.BTCUSDT
     default_timeframe: Timeframe = Timeframe.H1
@@ -125,6 +139,16 @@ class Settings:
             for url in _first_env("NEWS_RSS_FEEDS").split(",")
             if url.strip()
         )
+        api_keys = tuple(
+            key.strip()
+            for key in _first_env("PKAY_API_KEYS").split(",")
+            if key.strip()
+        )
+        cors_origins = tuple(
+            origin.strip().rstrip("/")
+            for origin in _first_env("CORS_ORIGINS").split(",")
+            if origin.strip()
+        )
         try:
             railway_port = os.getenv("PORT")
             webhook_port = int(os.getenv("WEBHOOK_PORT", railway_port or "8443"))
@@ -158,6 +182,13 @@ class Settings:
             webhook_port=webhook_port,
             database_url=os.getenv("DATABASE_URL", cls.database_url),
             redis_url=os.getenv("REDIS_URL", cls.redis_url),
+            api_keys=api_keys,
+            google_client_id=os.getenv("GOOGLE_CLIENT_ID", ""),
+            google_client_secret=os.getenv("GOOGLE_CLIENT_SECRET", ""),
+            auth_base_url=os.getenv("AUTH_BASE_URL", "https://auth.pkay.fun"),
+            frontend_url=os.getenv("FRONTEND_URL", ""),
+            session_secret=os.getenv("SESSION_SECRET", ""),
+            cors_origins=cors_origins,
             default_symbol=default_symbol,
             default_timeframe=default_timeframe,
             max_daily_requests=max_requests,
@@ -183,6 +214,13 @@ class Settings:
         if self.news_rss_feeds:
             return self.news_rss_feeds[0]
         return DEFAULT_NEWS_FEEDS[symbol]
+
+    @property
+    def google_redirect_uri(self) -> str:
+        """OAuth redirect URI registered with Google."""
+        return (
+            f"{self.auth_base_url.rstrip('/')}/api/v3/auth/google/callback"
+        )
 
 
 def setup_logging(level: str = "INFO") -> None:

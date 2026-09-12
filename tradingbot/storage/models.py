@@ -7,7 +7,7 @@ persistable history row.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date, datetime
 
 from ..analysis.report import AnalysisReport
@@ -86,6 +86,66 @@ class HistoryRow:
     message_id: int | None = None
     llm_enhanced: bool = False
     agent_contributions: dict | None = None
+
+
+@dataclass(slots=True)
+class ApiUser:
+    """A public-API account (created via Google sign-in)."""
+
+    id: int | None = None
+    google_sub: str | None = None
+    email: str | None = None
+    name: str | None = None
+    picture: str | None = None
+    plan: str = "free"
+    created_at: datetime | None = None
+    last_login: datetime | None = None
+
+
+@dataclass(slots=True)
+class ApiUserSettings:
+    """Per-account preferences (mirrors ``api_user_settings``)."""
+
+    user_id: int | None = None
+    language: str = "en"
+    currency: str = "usd"
+    timezone: str = "utc"
+    theme: str = "dark"
+    density: str = "comfortable"
+    default_model: str = "deepseek-v4-flash"
+    default_symbol: str = "BTCUSDT"
+    default_timeframe: str = "1h"
+    notifications: dict = field(default_factory=dict)
+    updated_at: datetime | None = None
+
+
+@dataclass(slots=True)
+class ApiKey:
+    """A hashed public-API key. The raw key is never stored."""
+
+    id: int | None = None
+    user_id: int | None = None
+    name: str = "Untitled key"
+    key_prefix: str = ""
+    key_hash: str = ""
+    environment: str = "live"
+    scopes: tuple[str, ...] = ()
+    request_count: int = 0
+    created_at: datetime | None = None
+    last_used_at: datetime | None = None
+    revoked_at: datetime | None = None
+
+    @property
+    def active(self) -> bool:
+        return self.revoked_at is None
+
+
+@dataclass(slots=True)
+class ApiUsageSummary:
+    total: int = 0
+    today: int = 0
+    errors: int = 0
+    success_rate: float = 100.0
 
 
 def history_row_from_report(report: AnalysisReport, user_id: int) -> HistoryRow:

@@ -36,15 +36,22 @@ async def _post_shutdown(application: Application) -> None:
         await close_services(services)
 
 
-def build_application(settings: Settings) -> Application:
-    """Build a configured bot application ready to poll or run a webhook."""
-    application = (
+def build_application(settings: Settings, *, with_updater: bool = True) -> Application:
+    """Build a configured bot application.
+
+    Set ``with_updater=False`` when the update stream is driven manually (for
+    example the combined aiohttp server in ``webhook_server.py``) to avoid
+    creating a :class:`telegram.ext.Updater`.
+    """
+    builder = (
         Application.builder()
         .token(settings.telegram_bot_token)
         .post_init(_post_init)
         .post_shutdown(_post_shutdown)
-        .build()
     )
+    if not with_updater:
+        builder = builder.updater(None)
+    application = builder.build()
     application.bot_data["settings"] = settings
     register_handlers(application)
     return application
