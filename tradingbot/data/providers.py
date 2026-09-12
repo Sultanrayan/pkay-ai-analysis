@@ -212,6 +212,9 @@ class YahooProvider:
     }
     #: (interval, range) per timeframe. Aggregated timeframes use 60m.
     _INTERVALS: dict[Timeframe, tuple[str, str]] = {
+        Timeframe.M1: ("1m", "7d"),
+        Timeframe.M5: ("5m", "60d"),
+        Timeframe.M15: ("15m", "60d"),
         Timeframe.H1: ("60m", "10d"),
         Timeframe.H4: ("60m", "60d"),
         Timeframe.D1: ("1d", "2y"),

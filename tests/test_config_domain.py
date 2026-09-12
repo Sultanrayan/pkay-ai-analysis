@@ -32,6 +32,26 @@ def test_timeframe_parse_and_minutes():
     assert Timeframe.W1.minutes() == 10080
 
 
+def test_timeframe_intraday_and_aliases():
+    assert Timeframe.parse("1m") == Timeframe.M1
+    assert Timeframe.parse("5min") == Timeframe.M5
+    assert Timeframe.parse("15min") == Timeframe.M15
+    assert Timeframe.parse("1week") == Timeframe.W1
+    assert Timeframe.parse("60m") == Timeframe.H1
+    assert Timeframe.M1.minutes() == 1
+    assert Timeframe.M5.minutes() == 5
+    assert Timeframe.M15.minutes() == 15
+    assert [tf.value for tf in Timeframe] == [
+        "1m",
+        "5m",
+        "15m",
+        "1h",
+        "4h",
+        "1d",
+        "1w",
+    ]
+
+
 def test_settings_defaults():
     settings = Settings()
     assert settings.default_symbol == Symbol.BTCUSDT

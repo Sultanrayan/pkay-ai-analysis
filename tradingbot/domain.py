@@ -52,6 +52,9 @@ class Symbol(str, Enum):
 class Timeframe(str, Enum):
     """Supported chart timeframes (values double as Binance interval names)."""
 
+    M1 = "1m"
+    M5 = "5m"
+    M15 = "15m"
     H1 = "1h"
     H4 = "4h"
     D1 = "1d"
@@ -59,11 +62,29 @@ class Timeframe(str, Enum):
 
     def minutes(self) -> int:
         """Length of one candle in minutes (used for resampling)."""
-        return {"1h": 60, "4h": 240, "1d": 1440, "1w": 10080}[self.value]
+        return {
+            "1m": 1,
+            "5m": 5,
+            "15m": 15,
+            "1h": 60,
+            "4h": 240,
+            "1d": 1440,
+            "1w": 10080,
+        }[self.value]
 
     @classmethod
     def parse(cls, raw: str) -> Timeframe | None:
+        aliases = {
+            "1min": "1m",
+            "5min": "5m",
+            "15min": "15m",
+            "60m": "1h",
+            "1day": "1d",
+            "1week": "1w",
+            "1wk": "1w",
+        }
         normalized = raw.strip().lower()
+        normalized = aliases.get(normalized, normalized)
         try:
             return cls(normalized)
         except ValueError:
