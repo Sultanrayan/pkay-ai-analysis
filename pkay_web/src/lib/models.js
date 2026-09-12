@@ -1,0 +1,45 @@
+export const MODELS = [
+  {
+    id: "claude-fable-5-1",
+    name: "Claude Fable 5.1",
+    vendor: "Anthropic",
+    logo: "/models/claude.svg",
+    description: "Strong reasoning and nuanced market narrative analysis.",
+  },
+  {
+    id: "gpt-6-astra",
+    name: "GPT-6 Astra",
+    vendor: "OpenAI",
+    logo: "/models/openai.svg",
+    description: "Balanced generalist for broad market coverage.",
+  },
+  {
+    id: "glm-5.3",
+    name: "GLM 5.3",
+    vendor: "Zhipu AI",
+    logo: "/models/glm.svg",
+    description: "Efficient multilingual analysis across global markets.",
+  },
+  {
+    id: "deepseek-v4-pro",
+    name: "DeepSeek V4 Pro",
+    vendor: "DeepSeek",
+    logo: "/models/deepseek.svg",
+    description: "Deep quantitative reasoning for complex setups.",
+  },
+  {
+    id: "kimi-k3",
+    name: "Kimi K3",
+    vendor: "Moonshot AI",
+    logo: "/models/kimi.svg",
+    description: "Long-context analysis across many data sources.",
+  },
+  {
+    id: "deepseek-v4-flash",
+    name: "DeepSeek V4 Flash",
+    vendor: "DeepSeek",
+    logo: "/models/deepseek.svg",
+    default: true,
+    description: "Low-latency default for fast, cost-efficient requests.",
+  },
+];

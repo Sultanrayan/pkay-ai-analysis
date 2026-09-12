@@ -1,0 +1,237 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI",
+    Roboto, Helvetica, Arial, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas,
+    monospace;
+
+  /* Black theme */
+  --color-ink-950: #000000;
+  --color-ink-900: #050505;
+  --color-ink-850: #0a0a0a;
+  --color-ink-800: #121212;
+  --color-ink-700: #1c1c1c;
+  --color-ink-600: #2a2a2a;
+
+  /* Accent (used sparingly on black) */
+  --color-brand-300: #c7d2fe;
+  --color-brand-400: #a5b4fc;
+  --color-brand-500: #818cf8;
+  --color-brand-600: #6366f1;
+  --color-brand-700: #4f46e5;
+
+  --color-accent-400: #67e8f9;
+  --color-accent-500: #22d3ee;
+
+  --animate-float: float 6s ease-in-out infinite;
+  --animate-marquee: marquee 36s linear infinite;
+  --animate-shimmer: shimmer 2.5s linear infinite;
+  --animate-aurora: aurora 16s ease-in-out infinite alternate;
+  --animate-spin-slow: spin 14s linear infinite;
+}
+
+@keyframes float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-14px);
+  }
+}
+
+@keyframes marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% center;
+  }
+  100% {
+    background-position: 200% center;
+  }
+}
+
+@keyframes aurora {
+  0% {
+    transform: translate(-8%, -6%) scale(1);
+  }
+  50% {
+    transform: translate(6%, 4%) scale(1.15);
+  }
+  100% {
+    transform: translate(-4%, 8%) scale(1.05);
+  }
+}
+
+@keyframes dot-flicker {
+  0% {
+    background-position: 0 0;
+    opacity: 0.8;
+  }
+  25% {
+    background-position: 1px 1px;
+    opacity: 1;
+  }
+  50% {
+    background-position: 2px 0;
+    opacity: 0.65;
+  }
+  75% {
+    background-position: 0 2px;
+    opacity: 0.95;
+  }
+  100% {
+    background-position: 1px 0;
+    opacity: 0.78;
+  }
+}
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    @apply bg-black text-neutral-300 font-sans antialiased;
+    background-image:
+      radial-gradient(
+        60rem 40rem at 80% -10%,
+        rgba(99, 102, 241, 0.14),
+        transparent 60%
+      ),
+      radial-gradient(
+        50rem 35rem at 0% 0%,
+        rgba(34, 211, 238, 0.1),
+        transparent 55%
+      );
+    background-attachment: fixed;
+  }
+
+  ::selection {
+    background: rgba(255, 255, 255, 0.85);
+    color: #000;
+  }
+
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: #2a2a2a transparent;
+  }
+}
+
+@layer utilities {
+  .text-gradient {
+    @apply bg-gradient-to-b from-white via-white to-neutral-500 bg-clip-text text-transparent;
+  }
+
+  .text-shimmer {
+    background: linear-gradient(
+      90deg,
+      #737373 0%,
+      #ffffff 20%,
+      #737373 40%,
+      #737373 100%
+    );
+    background-size: 200% auto;
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    animation: var(--animate-shimmer);
+  }
+
+  .glass {
+    @apply border border-white/10 bg-white/[0.02] backdrop-blur-xl;
+  }
+
+  .card-hover {
+    @apply transition-all duration-300 hover:-translate-y-1 hover:border-white/25;
+  }
+
+  .grid-lines {
+    background-image:
+      linear-gradient(to right, rgba(255, 255, 255, 0.045) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(255, 255, 255, 0.045) 1px, transparent 1px);
+    background-size: 46px 46px;
+  }
+
+  .dot-grid {
+    background-image: radial-gradient(
+      rgba(255, 255, 255, 0.12) 1px,
+      transparent 1px
+    );
+    background-size: 22px 22px;
+  }
+
+  .noise {
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.35'/%3E%3C/svg%3E");
+  }
+
+  .spotlight-card {
+    position: relative;
+    overflow: hidden;
+  }
+
+  .spotlight-card::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    opacity: 0;
+    transition: opacity 0.35s ease;
+    background: radial-gradient(
+      340px circle at var(--mx, 50%) var(--my, 50%),
+      rgba(255, 255, 255, 0.1),
+      transparent 65%
+    );
+    pointer-events: none;
+  }
+
+  .spotlight-card:hover::before {
+    opacity: 1;
+  }
+
+  .reveal {
+    opacity: 0;
+    transform: translateY(22px);
+    transition:
+      opacity 0.7s cubic-bezier(0.22, 1, 0.36, 1),
+      transform 0.7s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .reveal.is-visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  .flicker-text {
+    background-image: radial-gradient(
+      circle,
+      rgba(255, 255, 255, 0.62) 1px,
+      transparent 1.6px
+    );
+    background-size: 5px 5px;
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    color: transparent;
+    animation: dot-flicker 3.4s steps(6, end) infinite;
+  }
+}
+
+/* Light theme: invert the black dashboard surface, keeping images true. */
+.theme-light {
+  filter: invert(1) hue-rotate(180deg);
+  background-color: #ffffff;
+}
+
+.theme-light img {
+  filter: invert(1) hue-rotate(180deg);
+}
